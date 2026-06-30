@@ -1,0 +1,29 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { articleKindLabel, getArticle, getProject, getSettings } from '../../lib/content';
+import { renderMarkdown } from '../../lib/markdown';
+
+const settings = await getSettings();
+const { slug } = Astro.params;
+const article = slug ? await getArticle(slug) : undefined;
+if (!article) return Astro.redirect('/');
+const project = article.projectSlug ? await getProject(article.projectSlug) : undefined;
+const html = renderMarkdown(article.content);
+---
+<BaseLayout settings={settings} title={article.title} description={article.excerpt}>
+  <article class="container">
+    <header class="section-head">
+      <p class="eyebrow">{articleKindLabel(article.kind)}</p>
+      <h1 class="page-title">{article.title}</h1>
+      <p class="page-intro">{article.excerpt}</p>
+      <div class="pill-row" style="margin-top: 18px;">
+        <span class={`badge ${article.kind}`}>{article.category}</span>
+        <span class="pill">{article.date}</span>
+        {project && <a class="pill" href={`/project/${project.slug}`}>{project.name}</a>}
+        {article.company && <span class="pill">{article.company} · {article.position}</span>}
+        {article.tags.map((tag) => <span class="pill">{tag}</span>)}
+      </div>
+    </header>
+    <div class="glass-card article-prose" set:html={html} />
+  </article>
+</BaseLayout>

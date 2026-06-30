@@ -1,0 +1,54 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import ProjectCard from '../components/ProjectCard.astro';
+import ArticleRow from '../components/ArticleRow.astro';
+import { getArticles, getProjects, getRecentUpdates, getSettings } from '../lib/content';
+
+const settings = await getSettings();
+const projects = await getProjects();
+const articles = await getArticles();
+const featuredProjects = projects.filter((project) => project.featured).slice(0, 3);
+const recent = getRecentUpdates(articles, 5);
+---
+<BaseLayout settings={settings}>
+  <section class="container hero-section">
+    <div class="glass-card cool hero-card-left">
+      <div class="hero-avatar">{settings.ownerInitial}</div>
+      <h1 class="hero-name text-gradient">{settings.siteTitle}</h1>
+      <span class="hero-tag">{settings.identity}</span>
+      <p class="hero-desc">{settings.bio}</p>
+      <div class="hero-links">
+        <a class="hero-link" href={settings.github} aria-label="GitHub">GH</a>
+        <a class="hero-link" href={`mailto:${settings.email}`} aria-label="Email">@</a>
+      </div>
+    </div>
+    <div class="glass-card warm hero-right">
+      <h2 class="card-title"><span class="text-gradient">数据概览</span></h2>
+      <div class="hero-stats">
+        <div class="stat-item"><div class="stat-number">{projects.length}</div><div class="stat-label">项目</div></div>
+        <div class="stat-item"><div class="stat-number">{articles.length}</div><div class="stat-label">文章</div></div>
+        <div class="stat-item"><div class="stat-number">{new Set(articles.flatMap((a) => a.tags)).size}</div><div class="stat-label">技术栈</div></div>
+        <div class="stat-item"><div class="stat-number">{projects.filter((p) => p.status === 'ongoing').length}</div><div class="stat-label">进行中</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="container status-banner">
+    <span class="pulse-dot"></span>
+    <span>{settings.status}</span>
+  </section>
+
+  <section class="container home-section">
+    <h2 class="section-title"><span class="section-title-bar"></span>项目速览</h2>
+    <div class="project-grid">
+      {featuredProjects.map((project) => <ProjectCard project={project} />)}
+    </div>
+  </section>
+
+  <section class="container home-section">
+    <h2 class="section-title"><span class="section-title-bar"></span>近期更新摘要</h2>
+    <div class="update-list">
+      {recent.map((article) => <ArticleRow article={article} />)}
+    </div>
+  </section>
+</BaseLayout>

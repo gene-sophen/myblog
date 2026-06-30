@@ -1,0 +1,40 @@
+---
+import type { Project } from '../lib/types';
+
+interface Props {
+  project: Project;
+}
+
+const { project } = Astro.props;
+
+function progressValue(value: number) {
+  return Math.min(100, Math.max(0, Number(value) || 0));
+}
+---
+<article class="project-card">
+  <div class="project-icon-wrap">{project.name.slice(0, 2)}</div>
+  <div class="pill-row">
+    <span class="badge">{project.statusLabel}</span>
+    <span class="badge">{project.status === 'ongoing' ? '进行中' : '已归档'}</span>
+  </div>
+  <h2 class="project-name">{project.name}</h2>
+  <p class="project-desc">{project.summary}</p>
+  <div class="pill-row" style="margin-top: 16px;">
+    {project.tech.map((tag) => <span class="pill">{tag}</span>)}
+  </div>
+  {project.progress.length > 0 && (
+    <div class="progress-group">
+      {project.progress.map((item) => (
+        <div class="progress-row">
+          <span>{item.label}</span>
+          <span class="progress-track"><span class="progress-fill" style={`width: ${progressValue(item.value)}%`}></span></span>
+          <span>{progressValue(item.value)}%</span>
+        </div>
+      ))}
+    </div>
+  )}
+  <p class="project-desc">{project.monthUpdate}</p>
+  <div class="cta-row">
+    <a class="btn secondary" href={`/project/${project.slug}`}>查看详情</a>
+  </div>
+</article>

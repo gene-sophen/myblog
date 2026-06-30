@@ -1,0 +1,18 @@
+---
+import { articleKindLabel } from '../lib/content';
+import type { Article } from '../lib/types';
+
+interface Props {
+  article: Article;
+}
+
+const { article } = Astro.props;
+---
+<a class="article-row update-item" href={`/articles/${article.slug}`}>
+  <span class={`badge update-badge ${article.kind}`}>{articleKindLabel(article.kind)}</span>
+  <span class="update-title">
+    <strong>{article.title}</strong>
+    <span class="muted" style="display: block;">{article.excerpt}</span>
+  </span>
+  <span class="meta update-date">{article.date}</span>
+</a>

@@ -1,0 +1,20 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import ProjectCard from '../components/ProjectCard.astro';
+import { getProjects, getSettings } from '../lib/content';
+
+const settings = await getSettings();
+const projects = (await getProjects()).filter((project) => project.status === 'ongoing');
+---
+<BaseLayout settings={settings} title="正在开发" description="记录正在推进中的项目状态、技术栈、进度和近期变化。">
+  <section class="container">
+    <div class="section-head">
+      <p class="eyebrow">Now Building</p>
+      <h1 class="page-title">正在开发</h1>
+      <p class="page-intro">这里保留项目进行时的状态、技术栈、进度和近期变化。读者可以从卡片进入详情页，查看说明书和开发日志。</p>
+    </div>
+    <div class="grid grid-2">
+      {projects.map((project) => <ProjectCard project={project} />)}
+    </div>
+  </section>
+</BaseLayout>

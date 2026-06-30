@@ -1,0 +1,78 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import ArticleRow from '../../components/ArticleRow.astro';
+import { getArticles, getProject, getSettings } from '../../lib/content';
+
+const settings = await getSettings();
+const { slug } = Astro.params;
+const project = slug ? await getProject(slug) : undefined;
+if (!project) return Astro.redirect('/projects');
+const articles = (await getArticles()).filter((article) => article.projectSlug === project.slug);
+const specs = articles.filter((article) => article.kind === 'spec');
+const devlogs = articles.filter((article) => article.kind === 'devlog');
+
+function progressValue(value: number) {
+  return Math.min(100, Math.max(0, Number(value) || 0));
+}
+---
+<BaseLayout settings={settings} title={project.name} description={project.summary}>
+  <section class="container">
+    <div class="section-head">
+      <p class="eyebrow">{project.status === 'ongoing' ? 'Active Project' : 'Archived Project'}</p>
+      <h1 class="page-title">{project.name}</h1>
+      <p class="page-intro">{project.summary}</p>
+      {project.releaseNote && <p class="pill" style="margin-top: 14px;">{project.releaseNote}</p>}
+      <div class="pill-row" style="margin-top: 18px;">
+        <span class="badge">{project.statusLabel}</span>
+        {project.tech.map((tech) => <span class="pill">{tech}</span>)}
+      </div>
+    </div>
+
+    <div class="grid grid-2">
+      <section class="glass-card card">
+        <h2 class="card-title">架构流程</h2>
+        <div class="timeline" style="margin-top: 18px;">
+          {project.architecture.map((item) => (
+            <div class="timeline-item">
+              <p class="muted" style="margin: 0;">{item}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section class="glass-card card">
+        <h2 class="card-title">{project.status === 'ongoing' ? '当前进度' : '维护状态'}</h2>
+        {project.progress.length > 0 ? (
+          <div class="progress-group">
+            {project.progress.map((item) => (
+              <div class="progress-row">
+                <span>{item.label}</span>
+                <span class="progress-track"><span class="progress-fill" style={`width: ${progressValue(item.value)}%`}></span></span>
+                <span>{progressValue(item.value)}%</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p class="muted">{project.statusLabel}</p>
+        )}
+        <p class="muted">{project.monthUpdate}</p>
+      </section>
+    </div>
+
+    <section class="glass-card card" style="margin-top: 28px;">
+      <h2 class="card-title">说明书区域</h2>
+      <div class="article-list" style="margin-top: 18px;">
+        {specs.map((article) => <ArticleRow article={article} />)}
+        {specs.length === 0 && <p class="muted">暂无说明书</p>}
+      </div>
+    </section>
+
+    <section class="glass-card card" style="margin-top: 28px;">
+      <h2 class="card-title">开发日志流</h2>
+      <div class="article-list" style="margin-top: 18px;">
+        {devlogs.map((article) => <ArticleRow article={article} />)}
+        {devlogs.length === 0 && <p class="muted">暂无开发日志</p>}
+      </div>
+    </section>
+  </section>
+</BaseLayout>

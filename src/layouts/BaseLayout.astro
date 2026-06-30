@@ -1,0 +1,96 @@
+---
+import '../styles/global.css';
+import Nav from '../components/Nav.astro';
+import type { Settings } from '../lib/types';
+
+interface Props {
+  title?: string;
+  description?: string;
+  settings: Settings;
+}
+
+const { title, description, settings } = Astro.props;
+const pageTitle = title ? `${title} - ${settings.siteTitle}` : `${settings.siteTitle} - ${settings.siteSubtitle}`;
+const pageDescription = description || settings.bio || settings.siteSubtitle;
+const canonicalUrl = new URL(Astro.url.pathname, Astro.url.origin).toString();
+const isAdminPage = Astro.url.pathname.startsWith('/admin');
+
+Astro.response.headers.set('Cache-Control', isAdminPage ? 'no-store' : 'public, max-age=60, stale-while-revalidate=300');
+Astro.response.headers.set('Content-Type', 'text/html; charset=utf-8');
+Astro.response.headers.set('X-Content-Type-Options', 'nosniff');
+Astro.response.headers.set('X-Frame-Options', 'SAMEORIGIN');
+Astro.response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+Astro.response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+Astro.response.headers.set(
+  'Content-Security-Policy',
+  [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline'",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com",
+    "img-src 'self' data: https:",
+    "connect-src 'self'",
+    "frame-src 'self'",
+    "frame-ancestors 'self'",
+    "base-uri 'self'",
+    "form-action 'self'"
+  ].join('; ')
+);
+---
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content={pageDescription} />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={pageDescription} />
+    <meta property="og:url" content={canonicalUrl} />
+    <meta property="og:site_name" content={settings.siteTitle} />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content={pageTitle} />
+    <meta name="twitter:description" content={pageDescription} />
+    <title>{pageTitle}</title>
+    <link rel="canonical" href={canonicalUrl} />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <div class="site-shell">
+      <Nav settings={settings} path={Astro.url.pathname} />
+      <main class="page-main">
+        <slot />
+      </main>
+      <footer class="footer">
+        <div class="container">Copyright {new Date().getFullYear()} {settings.siteTitle}. Built for project-driven growth.</div>
+      </footer>
+    </div>
+    <script is:inline>
+      if (!location.pathname.startsWith('/admin')) {
+        let reloading = false;
+        const reloadForSavedContent = () => {
+          if (reloading) return;
+          reloading = true;
+          location.reload();
+        };
+
+        if ('BroadcastChannel' in window) {
+          const channel = new BroadcastChannel('codepulse-content');
+          channel.addEventListener('message', (event) => {
+            if (event.data && event.data.type === 'content-saved') {
+              reloadForSavedContent();
+            }
+          });
+        }
+
+        window.addEventListener('storage', (event) => {
+          if (event.key === 'codepulse-content-saved' && event.newValue) {
+            reloadForSavedContent();
+          }
+        });
+      }
+    </script>
+  </body>
+</html>

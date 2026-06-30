@@ -1,0 +1,25 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import ProjectCard from '../components/ProjectCard.astro';
+import { getProjects, getSettings } from '../lib/content';
+
+const settings = await getSettings();
+const projects = (await getProjects()).filter((project) => project.status === 'archived');
+const techs = Array.from(new Set(projects.flatMap((project) => project.tech)));
+---
+<BaseLayout settings={settings} title="项目库" description="集中展示稳定维护、已上线或已归档的项目，以及对应说明书和开发日志。">
+  <section class="container">
+    <div class="section-head">
+      <p class="eyebrow">Project Archive</p>
+      <h1 class="page-title">项目库</h1>
+      <p class="page-intro">稳定维护、已上线或已归档的项目集中在这里。每个项目保留说明书与完整开发日志，方便复盘。</p>
+    </div>
+    <div class="pill-row" style="margin-bottom: 28px;">
+      <span class="pill">全部</span>
+      {techs.map((tech) => <span class="pill">{tech}</span>)}
+    </div>
+    <div class="grid grid-2">
+      {projects.map((project) => <ProjectCard project={project} />)}
+    </div>
+  </section>
+</BaseLayout>

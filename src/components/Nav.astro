@@ -1,0 +1,33 @@
+---
+import type { Settings } from '../lib/types';
+
+interface Props {
+  settings: Settings;
+  path: string;
+}
+
+const { settings, path } = Astro.props;
+const links = [
+  { href: '/', label: '首页' },
+  { href: '/developing', label: '正在开发' },
+  { href: '/projects', label: '项目库' },
+  { href: '/tools', label: '工具箱' },
+  { href: '/resume', label: '个人履历' }
+];
+
+function active(href: string) {
+  if (href === '/') return path === '/';
+  return path.startsWith(href);
+}
+---
+<nav class="nav">
+  <div class="container nav-inner">
+    <a class="brand" href="/">
+      <span class="brand-mark">{settings.ownerInitial || 'C'}</span>
+      <span class="brand-text">{settings.siteTitle}</span>
+    </a>
+    <div class="nav-links" aria-label="主导航">
+      {links.map((link) => <a class:list={['nav-link', { active: active(link.href) }]} href={link.href}>{link.label}</a>)}
+    </div>
+  </div>
+</nav>

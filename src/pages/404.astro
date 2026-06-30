@@ -1,0 +1,16 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { getSettings } from '../lib/content';
+
+const settings = await getSettings();
+---
+<BaseLayout settings={settings} title="页面不存在" description="这个地址暂时没有对应内容，可以回到首页继续浏览。">
+  <section class="container glass-card card">
+    <p class="eyebrow">404</p>
+    <h1 class="page-title">页面不存在</h1>
+    <p class="page-intro">这个地址暂时没有对应内容，可以回到首页继续浏览。</p>
+    <div class="cta-row">
+      <a class="btn" href="/">返回首页</a>
+    </div>
+  </section>
+</BaseLayout>

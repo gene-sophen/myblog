@@ -1,0 +1,83 @@
+[
+  {
+    "slug": "codepulse-spec",
+    "title": "CodePulse 博客系统说明书",
+    "date": "2026-06-30",
+    "kind": "spec",
+    "category": "项目说明书",
+    "projectSlug": "codepulse-blog",
+    "lifecycle": "ongoing",
+    "tags": [
+      "Astro",
+      "内容系统",
+      "部署"
+    ],
+    "company": "",
+    "position": "",
+    "excerpt": "定义博客系统的信息架构、内容模型、后台维护方式与部署边界。",
+    "content": "## 目标\n\nCodePulse 是一个以项目生命周期为核心的个人技术博客。它不只展示结果，也展示正在发生的设计、踩坑和复盘。\n\n## 内容模型\n\n- 项目通过 `ongoing` 和 `archived` 区分展示位置。\n- 文章通过 `spec` 和 `devlog` 区分在详情页的位置。\n- 工具箱、面经和随笔不绑定项目，分别进入独立栏目。\n\n## 维护方式\n\n后台提供站点设置、项目和文章维护。内容以 JSON 文件保存在 `data` 目录，适合个人云服务器部署和备份。"
+  },
+  {
+    "slug": "admin-devlog-001",
+    "title": "把博客从静态页面升级为可维护内容系统",
+    "date": "2026-06-30",
+    "kind": "devlog",
+    "category": "开发日志",
+    "projectSlug": "codepulse-blog",
+    "lifecycle": "ongoing",
+    "tags": [
+      "后台",
+      "JSON",
+      "Astro"
+    ],
+    "excerpt": "从 mockup 出发，补齐内容后台、API 和文章详情页。",
+    "content": "## 背景\n\n最初的设计稿已经明确了五个一级栏目和视觉系统，但真正可长期使用的博客还需要内容维护入口。\n\n## 实现\n\n本阶段采用文件型内容库：站点设置、项目和文章都保存在 `data` 目录。后台通过 API 写入文件，前台页面服务端读取最新内容。\n\n## 下一步\n\n增加更严格的鉴权策略、备份机制，以及更丰富的文章编辑体验。"
+  },
+  {
+    "slug": "go-env-checklist",
+    "title": "Go 项目环境初始化速查",
+    "date": "2026-06-28",
+    "kind": "tool",
+    "category": "环境配置",
+    "projectSlug": "",
+    "lifecycle": "",
+    "tags": [
+      "Go",
+      "环境配置"
+    ],
+    "excerpt": "一份用于新机器或新项目的 Go 环境初始化清单。",
+    "content": "## 适用场景\n\n新建 Go 项目或在新机器上恢复开发环境。\n\n## 核心配置\n\n```bash\ngo env -w GOPROXY=https://goproxy.cn,direct\ngo mod init example.com/app\ngo test ./...\n```\n\n## 注意事项\n\n保持 Go 版本、CI 版本和部署环境版本一致，避免本地通过但线上失败。"
+  },
+  {
+    "slug": "backend-interview-review",
+    "title": "一次后端实习面试复盘",
+    "date": "2026-06-20",
+    "kind": "interview",
+    "category": "面经实录",
+    "projectSlug": "",
+    "lifecycle": "",
+    "company": "某互联网公司",
+    "position": "后端开发实习生",
+    "tags": [
+      "Java",
+      "MySQL",
+      "Redis"
+    ],
+    "excerpt": "记录问题、回答思路、正确解法和事后反思。",
+    "content": "## 提问内容\n\n- MySQL 索引为什么会失效？\n- Redis 缓存穿透和击穿如何处理？\n- Java 线程池参数如何设置？\n\n## 回答思路\n\n先说明现象，再补充底层原因，最后给出工程实践。\n\n## 事后反思\n\n需要减少背诵式回答，更多结合自己项目里的真实选择。"
+  },
+  {
+    "slug": "monthly-note-june",
+    "title": "六月碎碎念：把作品做成系统",
+    "date": "2026-06-18",
+    "kind": "essay",
+    "category": "随笔",
+    "projectSlug": "",
+    "lifecycle": "",
+    "tags": [
+      "月度总结"
+    ],
+    "excerpt": "这个月最重要的变化，是开始把零散产出整理成能持续维护的系统。",
+    "content": "## 记录\n\n过去我更习惯写完一个项目就结束，但真正有价值的部分经常藏在过程中：为什么换方案，哪里踩坑，怎么判断取舍。\n\n这个博客希望把这些过程留下来。"
+  }
+]

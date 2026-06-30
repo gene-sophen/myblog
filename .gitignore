@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.astro/
+.env
+npm-debug.log*
+.agents/
+屏幕截图*.png

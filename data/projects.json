@@ -1,0 +1,95 @@
+[
+  {
+    "slug": "codepulse-blog",
+    "name": "CodePulse Blog",
+    "status": "ongoing",
+    "statusLabel": "内容系统开发中",
+    "tech": [
+      "Astro",
+      "TypeScript",
+      "Node",
+      "Markdown"
+    ],
+    "summary": "面向个人技术成长记录的全栈内容站，覆盖项目生命周期、工具沉淀和履历内容。",
+    "progress": [
+      {
+        "label": "前台",
+        "value": 85
+      },
+      {
+        "label": "后台",
+        "value": 75
+      },
+      {
+        "label": "部署",
+        "value": 55
+      }
+    ],
+    "monthUpdate": "已完成站点信息、项目、文章与工具内容的文件型维护方案。下一步重点是补齐真实内容与部署加固。",
+    "releaseNote": "",
+    "architecture": [
+      "浏览器访问前台页面",
+      "Astro 服务端读取 JSON 内容库",
+      "后台 API 写入 data 目录",
+      "云服务器以 Node 服务运行"
+    ],
+    "featured": true
+  },
+  {
+    "slug": "interview-notes",
+    "name": "Interview Notes",
+    "status": "archived",
+    "statusLabel": "稳定维护中",
+    "tech": [
+      "Java",
+      "MySQL",
+      "Redis"
+    ],
+    "summary": "面向后端校招的面经复盘库，按问题、思路、解法和反思沉淀。",
+    "progress": [],
+    "monthUpdate": "已进入长期维护阶段，按面试轮次持续补充题目复盘。",
+    "releaseNote": "该项目已于 2026 年 05 月正式发布。",
+    "architecture": [
+      "按公司与岗位归档",
+      "按知识域索引",
+      "复盘问题与回答策略",
+      "沉淀可复用模板"
+    ],
+    "featured": true
+  },
+  {
+    "slug": "mq-lab",
+    "name": "Message Queue Lab",
+    "status": "ongoing",
+    "statusLabel": "核心逻辑验证中",
+    "tech": [
+      "Go",
+      "Redis",
+      "Docker"
+    ],
+    "summary": "从零拆解消息队列的主题、消费组、确认机制和持久化设计。",
+    "progress": [
+      {
+        "label": "后端",
+        "value": 80
+      },
+      {
+        "label": "测试",
+        "value": 45
+      },
+      {
+        "label": "文档",
+        "value": 60
+      }
+    ],
+    "monthUpdate": "完成 topic 和 consumer group 的最小原型，正在整理 ack 语义和失败重试策略。",
+    "releaseNote": "",
+    "architecture": [
+      "Producer 投递消息",
+      "Broker 持久化并路由",
+      "Consumer Group 拉取",
+      "Ack 与 Retry 更新状态"
+    ],
+    "featured": true
+  }
+]

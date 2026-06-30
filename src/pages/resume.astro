@@ -1,0 +1,57 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import ArticleRow from '../components/ArticleRow.astro';
+import { getArticles, getProjects, getSettings } from '../lib/content';
+
+const settings = await getSettings();
+const articles = await getArticles();
+const projects = await getProjects();
+const career = articles.filter((article) => ['interview', 'job', 'resume'].includes(article.kind));
+const essays = articles.filter((article) => article.kind === 'essay');
+const tags = Array.from(new Set([...projects.flatMap((project) => project.tech), ...articles.flatMap((article) => article.tags)]));
+---
+<BaseLayout settings={settings} title="个人履历" description="整理技术画像、项目里程碑、求职复盘和个人成长记录。">
+  <section class="container">
+    <div class="section-head">
+      <p class="eyebrow">Profile</p>
+      <h1 class="page-title">个人履历</h1>
+      <p class="page-intro">{settings.identity}。这里把技术画像、成长路径、求职复盘和非技术随笔放在同一条时间线上。</p>
+    </div>
+
+    <div class="grid grid-2">
+      <section class="glass-card card">
+        <h2 class="card-title">技术画像</h2>
+        <div class="pill-row" style="margin-top: 18px;">
+          {tags.map((tag, index) => <span class="pill" style={`font-size: ${index % 4 === 0 ? 16 : 13}px`}>{tag}</span>)}
+        </div>
+      </section>
+
+      <section class="glass-card card">
+        <h2 class="card-title">项目里程碑</h2>
+        <div class="timeline" style="margin-top: 18px;">
+          {projects.map((project) => (
+            <a class="timeline-item" href={`/project/${project.slug}`}>
+              <span class="meta">{project.status === 'ongoing' ? '进行中' : '归档'}</span>
+              <h3 class="card-title" style="font-size: 18px; margin: 2px 0;">{project.name}</h3>
+              <p class="muted" style="margin: 0;">{project.summary}</p>
+            </a>
+          ))}
+        </div>
+      </section>
+    </div>
+
+    <section class="glass-card card" style="margin-top: 28px;">
+      <h2 class="card-title">求职经历</h2>
+      <div class="article-list" style="margin-top: 18px;">
+        {career.map((article) => <ArticleRow article={article} />)}
+      </div>
+    </section>
+
+    <section class="glass-card card" style="margin-top: 28px;">
+      <h2 class="card-title">随笔 · 碎碎念</h2>
+      <div class="article-list" style="margin-top: 18px;">
+        {essays.map((article) => <ArticleRow article={article} />)}
+      </div>
+    </section>
+  </section>
+</BaseLayout>

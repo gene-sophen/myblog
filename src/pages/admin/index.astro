@@ -1,0 +1,1763 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { isAuthed } from '../../lib/auth';
+import { getSettings } from '../../lib/content';
+
+const settings = await getSettings();
+const authed = isAuthed({ cookies: Astro.cookies });
+---
+<BaseLayout settings={settings} title={settings.adminTitle}>
+  <section class="admin-container">
+    <div class="section-head">
+      <p class="eyebrow">Content Studio</p>
+      <h1 class="page-title">{settings.adminTitle}</h1>
+      <p class="page-intro">维护站点设置、项目生命周期、文章内容和文章详情页数据。</p>
+    </div>
+
+    {!authed ? (
+      <form id="loginForm" class="glass-card admin-login">
+        <label>
+          管理密码
+          <input name="password" type="password" placeholder="请输入 ADMIN_PASSWORD" required />
+        </label>
+        <button class="btn" type="submit">登录</button>
+        <p id="loginMessage" class="muted"></p>
+      </form>
+    ) : (
+      <div id="studio" class="admin-shell">
+        <aside class="glass-card admin-sidebar">
+          <button class="studio-tab active" data-tab="settings">站点设置</button>
+          <button class="studio-tab" data-tab="projects">项目维护</button>
+          <button class="studio-tab" data-tab="articles">文章维护</button>
+          <button id="saveAll" class="btn" type="button">保存全部</button>
+          <a class="btn secondary" href="/" target="_blank" rel="noreferrer">查看前台</a>
+          <button id="logout" class="btn secondary" type="button">退出</button>
+          <p id="saveMessage" class="muted"></p>
+        </aside>
+
+        <section class="glass-card admin-panel" data-panel="settings">
+          <div class="panel-head studio-panel-head">
+            <div>
+              <p class="eyebrow">Site Profile</p>
+              <h2 class="card-title">站点设置</h2>
+              <p class="panel-desc">维护首页名片、站点标题、状态播报和联系方式。</p>
+            </div>
+          </div>
+          <div class="admin-workbench">
+            <div class="editor-surface">
+              <form id="settingsForm" class="settings-board"></form>
+            </div>
+            <aside class="preview-surface">
+              <div class="preview-head">
+                <div>
+                  <p class="eyebrow">Live Preview</p>
+                  <h3>首页预览</h3>
+                </div>
+                <a class="btn secondary" href="/" target="_blank" rel="noreferrer">打开</a>
+              </div>
+              <div class="preview-viewport">
+                <iframe class="front-preview" src="/?preview=settings" title="站点设置预览"></iframe>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <section class="glass-card admin-panel hidden" data-panel="projects">
+          <div class="panel-head studio-panel-head">
+            <div>
+              <p class="eyebrow">Project Library</p>
+              <h2 class="card-title">项目维护</h2>
+              <p class="panel-desc">维护项目生命周期、进度、架构节点和首页展示状态。</p>
+            </div>
+            <button class="btn secondary" id="newProject" type="button">新增项目</button>
+          </div>
+          <div class="admin-workbench">
+            <div class="editor-surface record-editor">
+              <div id="projectList" class="record-list"></div>
+              <form id="projectForm" class="admin-form"></form>
+            </div>
+            <aside class="preview-surface">
+              <div class="preview-head">
+                <div>
+                  <p class="eyebrow">Project Preview</p>
+                  <h3>前台项目页</h3>
+                </div>
+                <a class="btn secondary" id="projectPreviewLink" href="/projects" target="_blank" rel="noreferrer">打开</a>
+              </div>
+              <div class="preview-viewport">
+                <iframe class="front-preview" id="projectPreview" src="/projects?preview=projects" title="项目预览"></iframe>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <section class="glass-card admin-panel hidden" data-panel="articles">
+          <div class="panel-head studio-panel-head">
+            <div>
+              <p class="eyebrow">Writing Desk</p>
+              <h2 class="card-title">文章维护</h2>
+              <p class="panel-desc">维护说明书、开发日志、工具箱、面经和随笔正文。</p>
+            </div>
+            <button class="btn secondary" id="newArticle" type="button">新增文章</button>
+          </div>
+          <div class="admin-workbench">
+            <div class="editor-surface record-editor">
+              <div id="articleList" class="record-list"></div>
+              <form id="articleForm" class="admin-form article-form"></form>
+            </div>
+            <aside class="preview-surface">
+              <div class="preview-head">
+                <div>
+                  <p class="eyebrow">Article Preview</p>
+                  <h3>文章页预览</h3>
+                </div>
+                <a class="btn secondary" id="articlePreviewLink" href="/" target="_blank" rel="noreferrer">打开</a>
+              </div>
+              <div class="preview-viewport">
+                <iframe class="front-preview" id="articlePreview" src="/?preview=articles" title="文章预览"></iframe>
+              </div>
+            </aside>
+          </div>
+        </section>
+      </div>
+    )}
+  </section>
+
+  <style is:global>
+    .admin-container {
+      width: min(1760px, calc(100vw - 32px));
+      margin: 0 auto;
+    }
+
+    .admin-container > .section-head {
+      margin-bottom: 24px;
+    }
+
+    .admin-login {
+      max-width: 520px;
+      display: grid;
+      gap: 18px;
+      padding: 30px;
+      background:
+        linear-gradient(160deg, rgba(255, 255, 255, 0.9), rgba(240, 249, 255, 0.82)),
+        radial-gradient(circle at 10% 0%, rgba(90, 215, 242, 0.18), transparent 14rem);
+    }
+
+    .admin-shell {
+      display: grid;
+      grid-template-columns: 220px minmax(0, 1fr);
+      gap: 24px;
+      align-items: start;
+    }
+
+    .admin-sidebar {
+      position: sticky;
+      top: 92px;
+      display: grid;
+      gap: 10px;
+      padding: 18px;
+      background:
+        linear-gradient(160deg, rgba(255, 255, 255, 0.92), rgba(240, 249, 255, 0.8)),
+        radial-gradient(circle at 20% 0%, rgba(90, 215, 242, 0.22), transparent 12rem);
+    }
+
+    .studio-tab {
+      min-height: 46px;
+      border: 1px solid rgba(135, 196, 237, 0.2);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.68);
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-weight: 800;
+      transition: transform 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
+    }
+
+    .studio-tab:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-soft);
+    }
+
+    .studio-tab.active {
+      color: white;
+      border-color: transparent;
+      background: linear-gradient(135deg, var(--sky-blue), var(--bright-cyan));
+      box-shadow: var(--shadow-medium);
+    }
+
+    #saveMessage {
+      min-height: 40px;
+      padding: 8px 4px 0;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .admin-panel {
+      padding: 28px;
+      min-height: 720px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(245, 255, 250, 0.78)),
+        radial-gradient(circle at 100% 0%, rgba(112, 244, 191, 0.18), transparent 16rem);
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    .studio-panel-head {
+      padding-bottom: 18px;
+      border-bottom: 1px solid rgba(135, 196, 237, 0.14);
+    }
+
+    .panel-desc {
+      margin: 5px 0 0;
+      color: var(--text-tertiary);
+      font-size: 14px;
+    }
+
+    .admin-workbench {
+      display: grid;
+      grid-template-columns: minmax(560px, 1fr) minmax(520px, 640px);
+      gap: 22px;
+      align-items: start;
+    }
+
+    .editor-surface,
+    .preview-surface {
+      min-width: 0;
+      border: 1px solid rgba(255, 255, 255, 0.6);
+      border-radius: 22px;
+      background: rgba(255, 255, 255, 0.62);
+      box-shadow: 0 18px 48px rgba(90, 215, 242, 0.12);
+      backdrop-filter: blur(14px);
+    }
+
+    .editor-surface {
+      padding: 18px;
+    }
+
+    .preview-surface {
+      position: sticky;
+      top: 92px;
+      padding: 16px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(240, 249, 255, 0.78)),
+        radial-gradient(circle at 50% 0%, rgba(249, 248, 113, 0.16), transparent 12rem);
+    }
+
+    .preview-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .preview-head h3 {
+      margin: 0;
+      font-family: var(--font-display);
+      font-size: 18px;
+    }
+
+    .preview-viewport {
+      width: 100%;
+      height: min(68vh, 720px);
+      min-height: 520px;
+      overflow: hidden;
+      border: 1px solid rgba(135, 196, 237, 0.18);
+      border-radius: 18px;
+      background: white;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4);
+    }
+
+    .front-preview {
+      display: block;
+      width: 1200px;
+      min-width: 1200px;
+      height: 1200px;
+      border: 0;
+      border-radius: 0;
+      background: white;
+      transform-origin: 0 0;
+    }
+
+    .record-editor {
+      display: grid;
+      grid-template-columns: minmax(220px, 260px) minmax(420px, 1fr);
+      gap: 18px;
+    }
+
+    .record-list {
+      max-height: 690px;
+      display: grid;
+      align-content: start;
+      gap: 10px;
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    .record-item {
+      border: 1px solid rgba(135, 196, 237, 0.18);
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.72);
+      padding: 13px 14px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      text-align: left;
+      box-shadow: 0 8px 24px rgba(135, 196, 237, 0.08);
+      transition: transform 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
+    }
+
+    .record-item strong {
+      display: block;
+      margin-bottom: 2px;
+      color: var(--text-primary);
+      font-family: var(--font-display);
+      font-size: 14px;
+      line-height: 1.3;
+    }
+
+    .record-item span {
+      color: var(--text-tertiary);
+      font-family: var(--font-mono);
+      font-size: 11px;
+    }
+
+    .record-item:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-soft);
+    }
+
+    .record-item.active {
+      color: white;
+      border-color: transparent;
+      background: linear-gradient(135deg, var(--sky-blue), var(--bright-cyan));
+      box-shadow: var(--shadow-medium);
+    }
+
+    .record-item.active strong,
+    .record-item.active span {
+      color: white;
+    }
+
+    .admin-form {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 15px;
+      min-width: 0;
+    }
+
+    .settings-board {
+      display: grid;
+      gap: 18px;
+    }
+
+    .admin-form label {
+      display: grid;
+      gap: 8px;
+      padding: 12px;
+      color: var(--text-secondary);
+      border: 1px solid rgba(135, 196, 237, 0.12);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.48);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .field-card {
+      position: relative;
+      overflow: hidden;
+      display: grid;
+      align-content: start;
+      gap: 10px;
+      min-height: 118px;
+      padding: 14px;
+      color: var(--text-secondary);
+      border: 1px solid rgba(135, 196, 237, 0.13);
+      border-radius: 18px;
+      background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.78), rgba(240, 249, 255, 0.5)),
+        radial-gradient(circle at 100% 0%, rgba(90, 215, 242, 0.1), transparent 10rem);
+      font-size: 12px;
+      font-weight: 800;
+      box-shadow: 0 12px 34px rgba(135, 196, 237, 0.08);
+      transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+    }
+
+    .field-card::after {
+      content: "";
+      position: absolute;
+      right: -36px;
+      bottom: -42px;
+      width: 110px;
+      height: 110px;
+      opacity: 0.16;
+      background: var(--gradient-cool);
+      border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
+      pointer-events: none;
+    }
+
+    .field-card:focus-within {
+      transform: translateY(-2px);
+      border-color: rgba(90, 215, 242, 0.45);
+      box-shadow: 0 18px 44px rgba(90, 215, 242, 0.16);
+    }
+
+    .field-card.primary-field {
+      background:
+        linear-gradient(135deg, rgba(135, 196, 237, 0.2), rgba(255, 255, 255, 0.7)),
+        radial-gradient(circle at 100% 0%, rgba(68, 232, 226, 0.16), transparent 14rem);
+      border-color: rgba(90, 215, 242, 0.28);
+    }
+
+    .field-card.title-field {
+      min-height: 144px;
+      grid-column: span 2;
+    }
+
+    .field-card.title-field input {
+      min-height: 58px;
+      font-family: var(--font-display);
+      font-size: clamp(26px, 4vw, 38px);
+      font-weight: 900;
+      line-height: 1;
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.88), rgba(240, 249, 255, 0.78));
+    }
+
+    .field-card.subtitle-field input,
+    .field-card.identity-field input {
+      min-height: 48px;
+      border-radius: 999px;
+      color: var(--deep-blue);
+      font-weight: 800;
+      background: rgba(135, 196, 237, 0.12);
+    }
+
+    .field-card.avatar-field {
+      min-height: 144px;
+      justify-items: center;
+      text-align: center;
+      background:
+        radial-gradient(circle at 50% 20%, rgba(90, 215, 242, 0.24), transparent 8rem),
+        rgba(255, 255, 255, 0.68);
+    }
+
+    .field-card.avatar-field .field-top {
+      width: 100%;
+    }
+
+    .field-card.avatar-field input {
+      width: 92px;
+      height: 92px;
+      padding: 0;
+      color: white;
+      text-align: center;
+      background: var(--gradient-cool);
+      border: 0;
+      border-radius: 45% 55% 50% 50% / 50% 45% 55% 50%;
+      box-shadow: var(--shadow-glow);
+      font-family: var(--font-display);
+      font-size: 40px;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    .field-card.name-field input {
+      min-height: 52px;
+      font-family: var(--font-display);
+      font-size: 22px;
+      font-weight: 800;
+    }
+
+    .field-card.bio-field textarea {
+      min-height: 190px;
+      font-size: 15px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(245, 255, 250, 0.72));
+    }
+
+    .field-card.live-field {
+      min-height: 132px;
+      background:
+        linear-gradient(135deg, rgba(112, 244, 191, 0.14), rgba(249, 248, 113, 0.1)),
+        rgba(255, 255, 255, 0.58);
+      border-color: rgba(112, 244, 191, 0.28);
+    }
+
+    .field-card.live-field::before {
+      content: "";
+      position: absolute;
+      left: 16px;
+      bottom: 18px;
+      width: 10px;
+      height: 10px;
+      background: var(--mint);
+      border-radius: 999px;
+      box-shadow: 0 0 14px var(--mint);
+      z-index: 1;
+    }
+
+    .field-card.live-field textarea {
+      min-height: 82px;
+      padding-left: 36px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.76);
+      line-height: 1.45;
+    }
+
+    .field-card.link-field input,
+    .field-card.mail-field input,
+    .field-card.location-field input,
+    .field-card.studio-field input {
+      min-height: 48px;
+      border-radius: 999px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+    }
+
+    .field-card.link-field input {
+      color: var(--deep-blue);
+    }
+
+    .field-card.mail-field input {
+      color: #2d8a5e;
+    }
+
+    .field-card.full,
+    .admin-form label.full {
+      grid-column: 1 / -1;
+    }
+
+    .field-top {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 10px;
+      min-height: 18px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .field-top > span:nth-child(2) {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .admin-form input,
+    .admin-form select,
+    .admin-form textarea,
+    .admin-login input,
+    .field-card input,
+    .field-card select,
+    .field-card textarea {
+      width: 100%;
+      min-width: 0;
+      border: 1px solid rgba(135, 196, 237, 0.28);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.82);
+      color: var(--text-primary);
+      padding: 12px 13px;
+      outline: none;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+      transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+      position: relative;
+      z-index: 1;
+    }
+
+    .admin-form input:focus,
+    .admin-form select:focus,
+    .admin-form textarea:focus,
+    .admin-login input:focus,
+    .field-card input:focus,
+    .field-card select:focus,
+    .field-card textarea:focus {
+      border-color: var(--bright-cyan);
+      background: rgba(255, 255, 255, 0.96);
+      box-shadow: 0 0 0 4px rgba(90, 215, 242, 0.15);
+    }
+
+    .admin-form textarea,
+    .field-card textarea {
+      min-height: 110px;
+      resize: vertical;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      line-height: 1.65;
+    }
+
+    .settings-board textarea {
+      min-height: 132px;
+    }
+
+    .settings-board .live-field textarea {
+      min-height: 86px;
+    }
+
+    .settings-board input::placeholder,
+    .settings-board textarea::placeholder {
+      color: rgba(100, 116, 139, 0.58);
+    }
+
+    .admin-form .content-textarea {
+      min-height: 420px;
+    }
+
+    .article-form {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .form-actions {
+      grid-column: 1 / -1;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      padding-top: 4px;
+    }
+
+    @media (max-width: 1440px) {
+      .admin-workbench {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .preview-surface {
+        position: static;
+      }
+
+      .preview-viewport {
+        height: 560px;
+      }
+    }
+
+    @media (max-width: 1100px) {
+      .admin-shell,
+      .record-editor,
+      .admin-form {
+        grid-template-columns: 1fr;
+      }
+
+      .admin-sidebar {
+        position: static;
+      }
+
+      .admin-panel {
+        padding: 20px;
+      }
+    }
+
+    /* Calm settings editor: clean CodePulse controls without visual clutter. */
+    .settings-board {
+      gap: 16px;
+    }
+
+    .field-card::after {
+      display: none !important;
+    }
+
+    .field-card,
+    .field-card.primary-field,
+    .field-card.live-field,
+    .field-card.avatar-field {
+      min-height: auto;
+      justify-items: stretch;
+      padding: 12px;
+      text-align: left;
+      border-color: rgba(135, 196, 237, 0.16);
+      border-radius: 16px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.76), rgba(255, 255, 255, 0.54));
+      box-shadow: 0 8px 22px rgba(135, 196, 237, 0.07);
+    }
+
+    .field-card:focus-within {
+      transform: translateY(-1px);
+      border-color: rgba(90, 215, 242, 0.42);
+      box-shadow: 0 12px 30px rgba(90, 215, 242, 0.14);
+    }
+
+    .field-card.title-field {
+      grid-column: 1 / -1;
+      min-height: auto;
+    }
+
+    .field-card.full {
+      grid-column: 1 / -1;
+    }
+
+    .field-top {
+      min-height: auto;
+      margin-bottom: 2px;
+      color: var(--text-tertiary);
+      font-size: 12px;
+      letter-spacing: 0;
+    }
+
+    .field-top > span:nth-child(2),
+    .field-top > span:first-child {
+      flex: initial;
+    }
+
+    .field-card input,
+    .field-card select,
+    .field-card textarea,
+    .field-card.title-field input,
+    .field-card.name-field input,
+    .field-card.subtitle-field input,
+    .field-card.identity-field input,
+    .field-card.avatar-field input,
+    .field-card.link-field input,
+    .field-card.mail-field input,
+    .field-card.location-field input,
+    .field-card.studio-field input {
+      width: 100%;
+      height: auto;
+      min-height: 44px;
+      padding: 10px 12px;
+      color: var(--text-primary);
+      border: 1px solid rgba(135, 196, 237, 0.24);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.82);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.68);
+      font-family: var(--font-body);
+      font-size: 15px;
+      font-weight: 600;
+      text-align: left;
+      text-transform: none;
+    }
+
+    .field-card.title-field input {
+      min-height: 52px;
+      font-family: var(--font-display);
+      font-size: clamp(24px, 3vw, 32px);
+      font-weight: 850;
+      background:
+        linear-gradient(135deg, rgba(135, 196, 237, 0.14), rgba(255, 255, 255, 0.88));
+    }
+
+    .field-card.avatar-field input {
+      max-width: 120px;
+      color: white;
+      text-align: center;
+      background: var(--gradient-cool);
+      border: 0;
+      border-radius: 18px;
+      font-family: var(--font-display);
+      font-size: 22px;
+      font-weight: 900;
+    }
+
+    .field-card.bio-field textarea {
+      min-height: 150px;
+    }
+
+    .field-card.live-field textarea {
+      min-height: 76px;
+      padding-left: 34px;
+      border-radius: 18px;
+      line-height: 1.55;
+    }
+
+    .field-card.live-field::before {
+      left: 24px;
+      bottom: 28px;
+    }
+
+    /* Componentized site settings editor */
+    #settingsForm.settings-board {
+      display: grid;
+      gap: 18px;
+    }
+
+    .settings-hero-editor,
+    .settings-content-editor,
+    .settings-contact-editor {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid rgba(135, 196, 237, 0.18);
+      border-radius: 24px;
+      background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.86), rgba(240, 249, 255, 0.58)),
+        radial-gradient(circle at 100% 0%, rgba(90, 215, 242, 0.13), transparent 15rem);
+      box-shadow: 0 18px 46px rgba(135, 196, 237, 0.11);
+    }
+
+    .settings-hero-editor {
+      display: grid;
+      grid-template-columns: 150px minmax(0, 1fr);
+      gap: 18px;
+      padding: 18px;
+      align-items: stretch;
+    }
+
+    .hero-avatar-editor {
+      display: grid;
+      justify-items: center;
+      align-content: center;
+      gap: 12px;
+      min-height: 178px;
+      padding: 16px;
+      border: 1px solid rgba(90, 215, 242, 0.22);
+      border-radius: 22px;
+      background:
+        radial-gradient(circle at 50% 18%, rgba(90, 215, 242, 0.24), transparent 8rem),
+        rgba(255, 255, 255, 0.68);
+    }
+
+    .hero-avatar-editor > span,
+    .setting-control > span {
+      color: var(--text-tertiary);
+      font-size: 12px;
+      font-weight: 900;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+
+    .hero-avatar-editor input {
+      width: 92px;
+      height: 92px;
+      min-height: 92px;
+      padding: 0;
+      border: 0;
+      border-radius: 44% 56% 48% 52% / 48% 44% 56% 52%;
+      color: white;
+      background: var(--gradient-cool);
+      box-shadow: var(--shadow-glow);
+      font-family: var(--font-display);
+      font-size: 40px;
+      font-weight: 900;
+      line-height: 1;
+      text-align: center;
+      text-transform: uppercase;
+    }
+
+    .hero-brand-editor,
+    .setting-control {
+      display: grid;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .setting-control {
+      align-content: start;
+      min-height: 0;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      color: var(--text-secondary);
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    #settingsForm .setting-control input,
+    #settingsForm .setting-control textarea {
+      display: block;
+      width: 100%;
+      min-width: 0;
+      border: 1px solid rgba(135, 196, 237, 0.26);
+      background: rgba(255, 255, 255, 0.82);
+      color: var(--text-primary);
+      outline: none;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+      transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+    }
+
+    #settingsForm .setting-control input:focus,
+    #settingsForm .setting-control textarea:focus,
+    .hero-avatar-editor input:focus {
+      border-color: var(--bright-cyan);
+      background: rgba(255, 255, 255, 0.96);
+      box-shadow: 0 0 0 4px rgba(90, 215, 242, 0.15);
+    }
+
+    .brand-title-control {
+      padding: 16px;
+      border: 1px solid rgba(135, 196, 237, 0.14);
+      border-radius: 22px;
+      background:
+        linear-gradient(135deg, rgba(135, 196, 237, 0.16), rgba(255, 255, 255, 0.72)),
+        radial-gradient(circle at 100% 0%, rgba(68, 232, 226, 0.16), transparent 13rem);
+    }
+
+    #settingsForm .brand-title-control input {
+      min-height: 66px;
+      padding: 12px 14px;
+      border-radius: 18px;
+      font-family: var(--font-display);
+      font-size: 32px;
+      font-weight: 900;
+      line-height: 1.1;
+    }
+
+    .brand-meta-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .soft-pill-control,
+    .identity-control,
+    .contact-control {
+      padding: 14px;
+      border: 1px solid rgba(135, 196, 237, 0.12);
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.56);
+    }
+
+    #settingsForm .soft-pill-control input,
+    #settingsForm .identity-control input,
+    #settingsForm .contact-control input {
+      min-height: 48px;
+      padding: 11px 14px;
+      border-radius: 999px;
+      font-size: 15px;
+      font-weight: 800;
+      line-height: 1.35;
+    }
+
+    .settings-content-editor {
+      display: grid;
+      grid-template-columns: minmax(260px, 0.82fr) minmax(320px, 1.18fr);
+      gap: 14px;
+      padding: 18px;
+    }
+
+    .identity-editor,
+    .status-editor,
+    .bio-editor {
+      min-width: 0;
+    }
+
+    .identity-editor {
+      grid-column: 1 / -1;
+    }
+
+    .status-editor,
+    .bio-editor {
+      position: relative;
+      padding: 16px;
+      border: 1px solid rgba(135, 196, 237, 0.14);
+      border-radius: 22px;
+      background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.76), rgba(245, 255, 250, 0.56)),
+        radial-gradient(circle at 100% 10%, rgba(112, 244, 191, 0.12), transparent 13rem);
+    }
+
+    .status-pulse {
+      position: absolute;
+      left: 30px;
+      bottom: 36px;
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: var(--mint);
+      box-shadow: 0 0 14px var(--mint);
+      z-index: 2;
+    }
+
+    #settingsForm .status-control textarea,
+    #settingsForm .bio-control textarea {
+      resize: vertical;
+      border-radius: 18px;
+      font-family: var(--font-mono);
+      font-size: 14px;
+      line-height: 1.7;
+      white-space: pre-wrap;
+    }
+
+    #settingsForm .status-control textarea {
+      min-height: 136px;
+      padding: 14px 14px 14px 34px;
+    }
+
+    #settingsForm .bio-control textarea {
+      min-height: 236px;
+      padding: 16px;
+      font-size: 15px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(245, 255, 250, 0.76));
+    }
+
+    .settings-contact-editor {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      padding: 18px;
+    }
+
+    #settingsForm .contact-control input {
+      font-family: var(--font-mono);
+      font-size: 13px;
+    }
+
+    @media (max-width: 980px) {
+      .settings-hero-editor,
+      .settings-content-editor,
+      .settings-contact-editor,
+      .brand-meta-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .hero-avatar-editor {
+        min-height: 142px;
+      }
+
+      .status-editor,
+      .bio-editor {
+        grid-column: 1 / -1;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .settings-hero-editor,
+      .settings-content-editor,
+      .settings-contact-editor {
+        padding: 14px;
+        border-radius: 20px;
+      }
+
+      #settingsForm .brand-title-control input {
+        font-size: 26px;
+      }
+    }
+
+    /* Rebuilt left-side content editors */
+    .editor-surface {
+      overflow: hidden;
+    }
+
+    .record-editor {
+      grid-template-columns: minmax(190px, 232px) minmax(0, 1fr);
+      align-items: start;
+    }
+
+    .record-list {
+      position: sticky;
+      top: 108px;
+      max-height: min(72vh, 760px);
+      padding: 4px 6px 4px 2px;
+      border-right: 1px solid rgba(135, 196, 237, 0.12);
+    }
+
+    .record-item {
+      border-radius: 18px;
+      background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.78), rgba(240, 249, 255, 0.56));
+    }
+
+    .record-item.active {
+      background:
+        linear-gradient(135deg, var(--sky-blue), var(--bright-cyan)),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.1), transparent);
+    }
+
+    #projectForm,
+    #articleForm {
+      display: grid;
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+      gap: 16px;
+      align-content: start;
+      min-width: 0;
+    }
+
+    .content-editor-block {
+      position: relative;
+      grid-column: 1 / -1;
+      overflow: hidden;
+      padding: 16px;
+      border: 1px solid rgba(135, 196, 237, 0.17);
+      border-radius: 24px;
+      background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.84), rgba(240, 249, 255, 0.58)),
+        radial-gradient(circle at 100% 0%, rgba(90, 215, 242, 0.12), transparent 14rem);
+      box-shadow: 0 18px 44px rgba(90, 215, 242, 0.1);
+    }
+
+    .content-editor-block::before {
+      content: "";
+      position: absolute;
+      inset: 0 0 auto;
+      height: 4px;
+      background: linear-gradient(90deg, var(--sky-blue), var(--bright-cyan), var(--turquoise));
+    }
+
+    .summary-block::before,
+    .article-meta-block::before {
+      background: linear-gradient(90deg, var(--turquoise), var(--mint), var(--lime));
+    }
+
+    .architecture-block::before,
+    .article-writing-block::before {
+      background: linear-gradient(90deg, var(--mint), var(--lime), var(--lemon));
+    }
+
+    .content-editor-head {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+
+    .content-editor-head > span {
+      width: 38px;
+      height: 30px;
+      display: inline-grid;
+      place-items: center;
+      color: var(--deep-blue);
+      border: 1px solid rgba(135, 196, 237, 0.22);
+      border-radius: 999px;
+      background: rgba(135, 196, 237, 0.14);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .content-editor-head h3 {
+      margin: 0;
+      color: var(--text-primary);
+      font-family: var(--font-display);
+      font-size: 18px;
+      line-height: 1.2;
+    }
+
+    .content-editor-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      align-items: start;
+    }
+
+    .article-writing-block .content-editor-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .content-editor-block .field-card {
+      min-height: auto;
+      padding: 13px;
+      border: 1px solid rgba(135, 196, 237, 0.15);
+      border-radius: 18px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.56));
+      box-shadow: 0 10px 24px rgba(135, 196, 237, 0.07);
+    }
+
+    .content-editor-block .field-card.full {
+      grid-column: 1 / -1;
+    }
+
+    .content-editor-block .field-card::after {
+      display: none;
+    }
+
+    .content-editor-block .field-card:focus-within {
+      transform: translateY(-1px);
+      border-color: rgba(90, 215, 242, 0.45);
+      box-shadow: 0 16px 34px rgba(90, 215, 242, 0.14);
+    }
+
+    .content-editor-block .field-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin: 0 0 8px;
+      color: var(--text-tertiary);
+      font-size: 12px;
+      font-weight: 900;
+      line-height: 1.25;
+      white-space: normal;
+    }
+
+    .content-editor-block .field-top small {
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .content-editor-block input,
+    .content-editor-block select,
+    .content-editor-block textarea {
+      width: 100%;
+      min-width: 0;
+      border: 1px solid rgba(135, 196, 237, 0.26);
+      border-radius: 15px;
+      background: rgba(255, 255, 255, 0.86);
+      color: var(--text-primary);
+      outline: none;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+      font-size: 15px;
+      line-height: 1.55;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+    }
+
+    .content-editor-block input,
+    .content-editor-block select {
+      min-height: 46px;
+      padding: 10px 13px;
+    }
+
+    .content-editor-block textarea {
+      min-height: 128px;
+      padding: 13px 14px;
+      resize: vertical;
+      font-family: var(--font-mono);
+      white-space: pre-wrap;
+    }
+
+    .content-editor-block input:focus,
+    .content-editor-block select:focus,
+    .content-editor-block textarea:focus {
+      border-color: var(--bright-cyan);
+      background: rgba(255, 255, 255, 0.98);
+      box-shadow: 0 0 0 4px rgba(90, 215, 242, 0.15);
+    }
+
+    .project-title-field input,
+    .article-title-field input {
+      min-height: 62px;
+      border-radius: 18px;
+      background:
+        linear-gradient(135deg, rgba(135, 196, 237, 0.16), rgba(255, 255, 255, 0.9));
+      font-family: var(--font-display);
+      font-size: clamp(24px, 2.4vw, 34px);
+      font-weight: 900;
+      line-height: 1.15;
+    }
+
+    .mono-field input,
+    .tag-field input {
+      font-family: var(--font-mono);
+      font-size: 13px;
+    }
+
+    .tag-field input {
+      border-radius: 999px;
+      background: rgba(135, 196, 237, 0.12);
+    }
+
+    .release-field input {
+      border-radius: 999px;
+      background: rgba(112, 244, 191, 0.12);
+      font-weight: 800;
+    }
+
+    .field-card.area-md textarea {
+      min-height: 156px;
+    }
+
+    .field-card.area-lg textarea {
+      min-height: 204px;
+    }
+
+    .field-card.area-xl textarea,
+    .content-editor-block .content-textarea {
+      min-height: 520px;
+      font-size: 14px;
+      line-height: 1.75;
+    }
+
+    #projectForm .form-actions,
+    #articleForm .form-actions {
+      grid-column: 1 / -1;
+      display: flex;
+      justify-content: flex-end;
+      padding-top: 2px;
+    }
+
+    @media (max-width: 1180px) {
+      .record-editor {
+        grid-template-columns: 1fr;
+      }
+
+      .record-list {
+        position: static;
+        max-height: 260px;
+        border-right: 0;
+        border-bottom: 1px solid rgba(135, 196, 237, 0.12);
+        padding: 0 0 12px;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .content-editor-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .content-editor-block {
+        padding: 14px;
+        border-radius: 20px;
+      }
+
+      .project-title-field input,
+      .article-title-field input {
+        font-size: 24px;
+      }
+    }
+  </style>
+
+  <script>
+    // @ts-nocheck
+    const loginForm = document.querySelector('#loginForm');
+    if (loginForm) {
+      loginForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const message = document.querySelector('#loginMessage');
+        const submitButton = loginForm.querySelector('button[type="submit"]');
+        const password = new FormData(loginForm).get('password');
+        submitButton.disabled = true;
+        message.textContent = '正在登录...';
+        try {
+          const response = await fetch('/api/admin/login', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ password })
+          });
+          if (response.ok) location.reload();
+          else {
+            const result = await response.json().catch(() => ({}));
+            message.textContent = result.error || '登录失败，请检查密码。';
+          }
+        } catch {
+          message.textContent = '网络异常，请重试。';
+        } finally {
+          submitButton.disabled = false;
+        }
+      });
+    }
+
+    const studio = document.querySelector('#studio');
+    if (studio) {
+      let state = { settings: {}, projects: [], articles: [] };
+      let projectIndex = 0;
+      let articleIndex = 0;
+      let isDirty = false;
+
+      const qs = (selector) => document.querySelector(selector);
+      const qsa = (selector) => Array.from(document.querySelectorAll(selector));
+      const splitList = (value) => String(value || '').split(',').map((item) => item.trim()).filter(Boolean);
+      const lines = (value) => String(value || '').split('\n').map((item) => item.trim()).filter(Boolean);
+      const escapeHtml = (value) => String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+      const progressFromText = (value) => lines(value).map((row) => {
+        const [label, rawValue] = row.split(':');
+        const nextValue = Math.min(100, Math.max(0, Number(rawValue || 0) || 0));
+        return { label: (label || '').trim(), value: nextValue };
+      }).filter((item) => item.label);
+      const progressToText = (items) => (items || []).map((item) => `${item.label}:${item.value}`).join('\n');
+
+      function setDirty(value = true) {
+        isDirty = value;
+        const message = qs('#saveMessage');
+        if (message && value) message.textContent = '有未保存更改。';
+      }
+
+      studio.addEventListener('input', () => setDirty(true));
+      studio.addEventListener('change', () => setDirty(true));
+      window.addEventListener('beforeunload', (event) => {
+        if (!isDirty) return;
+        event.preventDefault();
+        event.returnValue = '';
+      });
+
+      function syncPreviewFrames(version = Date.now()) {
+        const selectedProject = state.projects[projectIndex];
+        const selectedArticle = state.articles[articleIndex];
+        const projectUrl = selectedProject?.slug ? `/project/${encodeURIComponent(selectedProject.slug)}` : '/projects';
+        const articleUrl = selectedArticle?.slug ? `/articles/${encodeURIComponent(selectedArticle.slug)}` : '/';
+        const projectPreview = qs('#projectPreview');
+        const articlePreview = qs('#articlePreview');
+        const projectLink = qs('#projectPreviewLink');
+        const articleLink = qs('#articlePreviewLink');
+
+        if (projectPreview) projectPreview.src = `${projectUrl}?preview=${version}`;
+        if (articlePreview) articlePreview.src = `${articleUrl}?preview=${version}`;
+        if (projectLink) projectLink.href = projectUrl;
+        if (articleLink) articleLink.href = articleUrl;
+
+        qsa('.front-preview').forEach((frame) => {
+          if (frame.id !== 'projectPreview' && frame.id !== 'articlePreview') {
+            frame.src = `/?preview=${version}`;
+          }
+        });
+      }
+
+      function scalePreviewFrames() {
+        const canvasWidth = 1200;
+        qsa('.preview-viewport').forEach((viewport) => {
+          const frame = viewport.querySelector('.front-preview');
+          if (!frame) return;
+          const scale = Math.min(1, viewport.clientWidth / canvasWidth);
+          frame.style.width = `${canvasWidth}px`;
+          frame.style.minWidth = `${canvasWidth}px`;
+          frame.style.height = `${Math.max(900, viewport.clientHeight / Math.max(scale, 0.1))}px`;
+          frame.style.transform = `scale(${scale})`;
+        });
+      }
+
+      const previewResizeObserver = 'ResizeObserver' in window
+        ? new ResizeObserver(scalePreviewFrames)
+        : null;
+
+      qsa('.preview-viewport').forEach((viewport) => previewResizeObserver?.observe(viewport));
+      window.addEventListener('resize', scalePreviewFrames);
+
+      function field(name, label, value = '', options = {}) {
+        const full = options.full ? ' full' : '';
+        const tone = options.tone ? ` ${options.tone}` : '';
+        const size = options.size ? ` ${options.size}` : '';
+        const inputClass = options.content ? ' class="content-textarea"' : '';
+        const placeholder = options.placeholder ? ` placeholder="${escapeHtml(options.placeholder)}"` : '';
+        const hint = options.hint ? `<small>${escapeHtml(options.hint)}</small>` : '';
+        const rows = options.rows ? ` rows="${escapeHtml(options.rows)}"` : '';
+        const type = options.inputType || 'text';
+        if (options.type === 'textarea') {
+          return `<label class="field-card${full}${tone}${size}" data-field="${escapeHtml(name)}"><span class="field-top"><span>${escapeHtml(label)}</span>${hint}</span><textarea name="${escapeHtml(name)}"${inputClass}${placeholder}${rows}>${escapeHtml(value)}</textarea></label>`;
+        }
+        if (options.type === 'select') {
+          return `<label class="field-card${full}${tone}${size}" data-field="${escapeHtml(name)}"><span class="field-top"><span>${escapeHtml(label)}</span>${hint}</span><select name="${escapeHtml(name)}">${options.choices.map((choice) => `<option value="${escapeHtml(choice.value)}" ${choice.value === value ? 'selected' : ''}>${escapeHtml(choice.label)}</option>`).join('')}</select></label>`;
+        }
+        return `<label class="field-card${full}${tone}${size}" data-field="${escapeHtml(name)}"><span class="field-top"><span>${escapeHtml(label)}</span>${hint}</span><input type="${escapeHtml(type)}" name="${escapeHtml(name)}" value="${escapeHtml(value)}"${placeholder} /></label>`;
+      }
+
+      function editorBlock(kicker, title, body, accent = '') {
+        return `
+          <section class="content-editor-block ${accent}">
+            <div class="content-editor-head">
+              <span>${escapeHtml(kicker)}</span>
+              <h3>${escapeHtml(title)}</h3>
+            </div>
+            <div class="content-editor-grid">${body}</div>
+          </section>
+        `;
+      }
+
+      function settingControl(name, label, value = '', options = {}) {
+        const placeholder = options.placeholder ? ` placeholder="${escapeHtml(options.placeholder)}"` : '';
+        const tone = options.tone ? ` ${options.tone}` : '';
+        const type = options.inputType || 'text';
+        if (options.type === 'textarea') {
+          return `
+            <label class="setting-control${tone}" data-field="${escapeHtml(name)}">
+              <span>${escapeHtml(label)}</span>
+              <textarea name="${escapeHtml(name)}"${placeholder}>${escapeHtml(value)}</textarea>
+            </label>
+          `;
+        }
+
+        return `
+          <label class="setting-control${tone}" data-field="${escapeHtml(name)}">
+            <span>${escapeHtml(label)}</span>
+            <input type="${escapeHtml(type)}" name="${escapeHtml(name)}" value="${escapeHtml(value)}"${placeholder} />
+          </label>
+        `;
+      }
+
+      function renderSettings() {
+        const s = state.settings;
+        qs('#settingsForm').innerHTML = `
+          <section class="settings-hero-editor">
+            <div class="hero-avatar-editor">
+              <span>头像标识</span>
+              <input name="ownerInitial" value="${escapeHtml(s.ownerInitial)}" maxlength="2" />
+            </div>
+            <div class="hero-brand-editor">
+              ${settingControl('siteTitle', '站点名称', s.siteTitle, { tone: 'brand-title-control', placeholder: 'CodePulse' })}
+              <div class="brand-meta-grid">
+                ${settingControl('siteSubtitle', '站点副标题', s.siteSubtitle, { tone: 'soft-pill-control', placeholder: '我的技术成长记录' })}
+                ${settingControl('ownerName', '博主姓名', s.ownerName, { tone: 'soft-pill-control', placeholder: '你的名字' })}
+              </div>
+            </div>
+          </section>
+
+          <section class="settings-content-editor">
+            <div class="identity-editor">
+              ${settingControl('identity', '身份标签', s.identity, { tone: 'identity-control', placeholder: '2026 届本科毕业生 · Go / Java 双修' })}
+            </div>
+            <div class="status-editor">
+              <div class="status-pulse"></div>
+              ${settingControl('status', '状态播报', s.status, { type: 'textarea', tone: 'status-control', placeholder: '正在重构消息队列中间件...' })}
+            </div>
+            <div class="bio-editor">
+              ${settingControl('bio', '博客简介', s.bio, { type: 'textarea', tone: 'bio-control', placeholder: '这里记录项目从想法、设计、实现到复盘的全过程...' })}
+            </div>
+          </section>
+
+          <section class="settings-contact-editor">
+            ${settingControl('github', 'GitHub', s.github, { inputType: 'url', tone: 'contact-control', placeholder: 'https://github.com/yourname' })}
+            ${settingControl('email', '邮箱', s.email, { inputType: 'email', tone: 'contact-control', placeholder: 'hello@example.com' })}
+            ${settingControl('location', '位置', s.location, { tone: 'contact-control', placeholder: 'China' })}
+            ${settingControl('adminTitle', '后台标题', s.adminTitle, { tone: 'contact-control', placeholder: 'CodePulse Studio' })}
+          </section>
+        `;
+      }
+
+      function readSettings() {
+        const form = new FormData(qs('#settingsForm'));
+        state.settings = Object.fromEntries(form.entries());
+      }
+
+      function renderProjectList() {
+        qs('#projectList').innerHTML = state.projects.map((project, index) => (
+          `<button class="record-item ${index === projectIndex ? 'active' : ''}" type="button" data-project="${index}"><strong>${escapeHtml(project.name)}</strong><br><span>${escapeHtml(project.status)} · ${escapeHtml(project.slug)}</span></button>`
+        )).join('');
+        qsa('[data-project]').forEach((button) => button.addEventListener('click', () => {
+          readProjectForm();
+          projectIndex = Number(button.dataset.project);
+          renderProjects();
+        }));
+      }
+
+      function renderProjectForm() {
+        const p = state.projects[projectIndex] || {};
+        qs('#projectForm').innerHTML = `
+          ${editorBlock('01', '项目名片', `
+            ${field('name', '项目名称', p.name, { tone: 'project-title-field title-field', full: true, placeholder: '例如：个人博客系统' })}
+            ${field('slug', '访问路径 Slug', p.slug, { tone: 'mono-field', placeholder: 'my-project' })}
+            ${field('status', '生命周期', p.status, { type: 'select', choices: [{ value: 'ongoing', label: '进行中' }, { value: 'archived', label: '已归档' }] })}
+            ${field('statusLabel', '状态徽章', p.statusLabel, { placeholder: '规划中 / 开发中 / 已上线' })}
+            ${field('featured', '首页展示', String(Boolean(p.featured)), { type: 'select', choices: [{ value: 'true', label: '展示在首页' }, { value: 'false', label: '不展示' }] })}
+          `, 'identity-block')}
+
+          ${editorBlock('02', '技术与摘要', `
+            ${field('tech', '技术栈', (p.tech || []).join(', '), { full: true, tone: 'tag-field', hint: '用逗号分隔' })}
+            ${field('summary', '项目简介', p.summary, { type: 'textarea', full: true, size: 'area-md', rows: 5, placeholder: '写清楚它解决什么问题、当前做到什么程度。' })}
+            ${field('releaseNote', '发布说明', p.releaseNote, { full: true, tone: 'release-field', placeholder: '例如：MVP 已完成 / 正在内测' })}
+          `, 'summary-block')}
+
+          ${editorBlock('03', '进展与架构', `
+            ${field('progress', '进度清单', progressToText(p.progress), { type: 'textarea', full: true, size: 'area-lg', rows: 7, hint: '每行 label:value', placeholder: '需求设计:80\\n后端接口:60' })}
+            ${field('monthUpdate', '近期进展', p.monthUpdate, { type: 'textarea', full: true, size: 'area-lg', rows: 7, placeholder: '记录最近一次关键进展、阻塞和下一步。' })}
+            ${field('architecture', '架构流程', (p.architecture || []).join('\n'), { type: 'textarea', full: true, size: 'area-lg', rows: 7, hint: '每行一个节点', placeholder: '前端页面\\nAPI 服务\\n数据持久化' })}
+          `, 'architecture-block')}
+
+          <div class="form-actions"><button class="btn secondary" id="deleteProject" type="button">删除项目</button></div>
+        `;
+        qs('#deleteProject').addEventListener('click', () => {
+          if (!confirm('确定删除当前项目？保存后才会真正写入。')) return;
+          state.projects.splice(projectIndex, 1);
+          projectIndex = Math.max(0, projectIndex - 1);
+          setDirty(true);
+          renderProjects();
+        });
+      }
+
+      function readProjectForm() {
+        const formEl = qs('#projectForm');
+        if (!formEl || !state.projects[projectIndex]) return;
+        const form = new FormData(formEl);
+        state.projects[projectIndex] = {
+          slug: form.get('slug'),
+          name: form.get('name'),
+          status: form.get('status'),
+          statusLabel: form.get('statusLabel'),
+          tech: splitList(form.get('tech')),
+          summary: form.get('summary'),
+          progress: progressFromText(form.get('progress')),
+          monthUpdate: form.get('monthUpdate'),
+          releaseNote: form.get('releaseNote'),
+          architecture: lines(form.get('architecture')),
+          featured: String(form.get('featured')).toLowerCase() === 'true'
+        };
+      }
+
+      function renderProjects() {
+        renderProjectList();
+        renderProjectForm();
+        syncPreviewFrames();
+      }
+
+      function renderArticleList() {
+        qs('#articleList').innerHTML = state.articles.map((article, index) => (
+          `<button class="record-item ${index === articleIndex ? 'active' : ''}" type="button" data-article="${index}"><strong>${escapeHtml(article.title)}</strong><br><span>${escapeHtml(article.kind)} · ${escapeHtml(article.date)}</span></button>`
+        )).join('');
+        qsa('[data-article]').forEach((button) => button.addEventListener('click', () => {
+          readArticleForm();
+          articleIndex = Number(button.dataset.article);
+          renderArticles();
+        }));
+      }
+
+      function renderArticleForm() {
+        const a = state.articles[articleIndex] || {};
+        qs('#articleForm').innerHTML = `
+          ${editorBlock('01', '文章标题区', `
+            ${field('title', '文章标题', a.title, { full: true, tone: 'article-title-field title-field', placeholder: '写一个清晰、有辨识度的标题' })}
+            ${field('slug', '访问路径 Slug', a.slug, { tone: 'mono-field', placeholder: 'article-slug' })}
+            ${field('date', '发布日期', a.date, { inputType: 'date' })}
+          `, 'article-heading-block')}
+
+          ${editorBlock('02', '归类与关联', `
+            ${field('kind', '文章类型', a.kind, { type: 'select', choices: [
+              { value: 'spec', label: '说明书' },
+              { value: 'devlog', label: '开发日志' },
+              { value: 'tool', label: '工具箱' },
+              { value: 'interview', label: '面经' },
+              { value: 'job', label: '求职心路' },
+              { value: 'resume', label: '简历经验' },
+              { value: 'essay', label: '随笔' }
+            ] })}
+            ${field('category', '分类', a.category)}
+            ${field('projectSlug', '所属项目 Slug', a.projectSlug, { tone: 'mono-field' })}
+            ${field('lifecycle', '生命周期', a.lifecycle, { type: 'select', choices: [{ value: '', label: '无' }, { value: 'ongoing', label: '进行中' }, { value: 'archived', label: '已归档' }] })}
+            ${field('tags', '标签', (a.tags || []).join(', '), { full: true, tone: 'tag-field', hint: '用逗号分隔' })}
+            ${field('company', '公司', a.company || '')}
+            ${field('position', '岗位', a.position || '')}
+          `, 'article-meta-block')}
+
+          ${editorBlock('03', '正文写作区', `
+            ${field('excerpt', '文章摘要', a.excerpt, { type: 'textarea', full: true, size: 'area-md', rows: 5, placeholder: '摘要会出现在列表和文章页头部。' })}
+            ${field('content', '正文 Markdown', a.content, { type: 'textarea', full: true, content: true, size: 'area-xl', rows: 18, placeholder: '## 小标题\\n\\n开始写正文...' })}
+          `, 'article-writing-block')}
+
+          <div class="form-actions"><button class="btn secondary" id="deleteArticle" type="button">删除文章</button></div>
+        `;
+        qs('#deleteArticle').addEventListener('click', () => {
+          if (!confirm('确定删除当前文章？保存后才会真正写入。')) return;
+          state.articles.splice(articleIndex, 1);
+          articleIndex = Math.max(0, articleIndex - 1);
+          setDirty(true);
+          renderArticles();
+        });
+      }
+
+      function readArticleForm() {
+        const formEl = qs('#articleForm');
+        if (!formEl || !state.articles[articleIndex]) return;
+        const form = new FormData(formEl);
+        state.articles[articleIndex] = {
+          slug: form.get('slug'),
+          title: form.get('title'),
+          date: form.get('date'),
+          kind: form.get('kind'),
+          category: form.get('category'),
+          projectSlug: form.get('projectSlug'),
+          lifecycle: form.get('lifecycle'),
+          tags: splitList(form.get('tags')),
+          company: form.get('company'),
+          position: form.get('position'),
+          excerpt: form.get('excerpt'),
+          content: form.get('content')
+        };
+      }
+
+      function renderArticles() {
+        renderArticleList();
+        renderArticleForm();
+        syncPreviewFrames();
+      }
+
+      qsa('.studio-tab').forEach((button) => button.addEventListener('click', () => {
+        qsa('.studio-tab').forEach((item) => item.classList.remove('active'));
+        button.classList.add('active');
+        qsa('[data-panel]').forEach((panel) => panel.classList.toggle('hidden', panel.dataset.panel !== button.dataset.tab));
+        requestAnimationFrame(scalePreviewFrames);
+      }));
+
+      qs('#newProject').addEventListener('click', () => {
+        readProjectForm();
+        state.projects.unshift({
+          slug: `new-project-${Date.now()}`,
+          name: '新项目',
+          status: 'ongoing',
+          statusLabel: '规划中',
+          tech: [],
+          summary: '',
+          progress: [],
+          monthUpdate: '',
+          releaseNote: '',
+          architecture: [],
+          featured: false
+        });
+        projectIndex = 0;
+        setDirty(true);
+        renderProjects();
+      });
+
+      qs('#newArticle').addEventListener('click', () => {
+        readArticleForm();
+        state.articles.unshift({
+          slug: `new-article-${Date.now()}`,
+          title: '新文章',
+          date: new Date().toISOString().slice(0, 10),
+          kind: 'devlog',
+          category: '开发日志',
+          projectSlug: '',
+          lifecycle: '',
+          tags: [],
+          excerpt: '',
+          content: '## 标题\n\n正文内容。'
+        });
+        articleIndex = 0;
+        setDirty(true);
+        renderArticles();
+      });
+
+      qs('#saveAll').addEventListener('click', async () => {
+        readSettings();
+        readProjectForm();
+        readArticleForm();
+        const saveButton = qs('#saveAll');
+        saveButton.disabled = true;
+        qs('#saveMessage').textContent = '正在保存...';
+        try {
+          const response = await fetch('/api/admin/content', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(state)
+          });
+          const result = await response.json().catch(() => ({}));
+          if (response.ok) {
+            setDirty(false);
+            qs('#saveMessage').textContent = `已保存，前台已刷新。${new Date().toLocaleTimeString()}`;
+            syncPreviewFrames(result.version?.version || Date.now());
+            if ('BroadcastChannel' in window) {
+              const channel = new BroadcastChannel('codepulse-content');
+              channel.postMessage({ type: 'content-saved', savedAt: result.version?.version || Date.now() });
+              channel.close();
+            }
+            try {
+              localStorage.setItem('codepulse-content-saved', String(result.version?.version || Date.now()));
+            } catch {}
+          } else {
+            const details = Array.isArray(result.details) ? `：${result.details.slice(0, 3).join('；')}` : '';
+            qs('#saveMessage').textContent = `${result.error || '保存失败，请重试'}${details}`;
+          }
+        } catch {
+          qs('#saveMessage').textContent = '保存失败，请检查网络或服务状态。';
+        } finally {
+          saveButton.disabled = false;
+        }
+      });
+
+      qs('#logout').addEventListener('click', async () => {
+        if (isDirty && !confirm('还有未保存更改，确定退出？')) return;
+        await fetch('/api/admin/logout', { method: 'POST' });
+        location.reload();
+      });
+
+      fetch('/api/admin/content')
+        .then((response) => response.json())
+        .then((data) => {
+          state = data;
+        renderSettings();
+        renderProjects();
+        renderArticles();
+        syncPreviewFrames(data.version?.version || Date.now());
+        scalePreviewFrames();
+      });
+    }
+  </script>
+</BaseLayout>
