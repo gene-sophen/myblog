@@ -16,8 +16,8 @@ function json(value: unknown, status = 200) {
 }
 
 function clientKey(context: Parameters<APIRoute>[0]) {
-  const forwarded = context.request.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
-  return forwarded || context.clientAddress || 'local';
+  const realIp = context.request.headers.get('x-real-ip')?.trim();
+  return realIp || context.clientAddress || 'local';
 }
 
 function isRateLimited(key: string) {

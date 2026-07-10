@@ -11,7 +11,7 @@ const authed = isAuthed({ cookies: Astro.cookies });
     <div class="section-head">
       <p class="eyebrow">Content Studio</p>
       <h1 class="page-title">{settings.adminTitle}</h1>
-      <p class="page-intro">维护站点设置、项目生命周期、文章内容和文章详情页数据。</p>
+      <p class="page-intro">维护站点设置、项目生命周期和 Markdown 内容源。</p>
     </div>
 
     {!authed ? (
@@ -42,6 +42,11 @@ const authed = isAuthed({ cookies: Astro.cookies });
               <h2 class="card-title">站点设置</h2>
               <p class="panel-desc">维护首页名片、站点标题、状态播报和联系方式。</p>
             </div>
+            <div class="panel-actions">
+              <button class="btn secondary" id="importSettings" type="button">导入设置</button>
+              <button class="btn secondary" id="exportSettings" type="button">导出设置</button>
+              <input id="settingsImportFile" class="hidden-file-input" type="file" accept=".md,text/markdown,text/plain" />
+            </div>
           </div>
           <div class="admin-workbench">
             <div class="editor-surface">
@@ -67,9 +72,14 @@ const authed = isAuthed({ cookies: Astro.cookies });
             <div>
               <p class="eyebrow">Project Library</p>
               <h2 class="card-title">项目维护</h2>
-              <p class="panel-desc">维护项目生命周期、进度、架构节点和首页展示状态。</p>
+              <p class="panel-desc">维护项目生命周期、进度、架构节点，并保存为项目 Markdown 文件。</p>
             </div>
-            <button class="btn secondary" id="newProject" type="button">新增项目</button>
+            <div class="panel-actions">
+              <button class="btn secondary" id="importProject" type="button">导入项目</button>
+              <button class="btn secondary" id="exportProject" type="button">导出项目</button>
+              <button class="btn secondary" id="newProject" type="button">新增项目</button>
+              <input id="projectImportFile" class="hidden-file-input" type="file" accept=".md,text/markdown,text/plain" />
+            </div>
           </div>
           <div class="admin-workbench">
             <div class="editor-surface record-editor">
@@ -96,14 +106,25 @@ const authed = isAuthed({ cookies: Astro.cookies });
             <div>
               <p class="eyebrow">Writing Desk</p>
               <h2 class="card-title">文章维护</h2>
-              <p class="panel-desc">维护说明书、开发日志、工具箱、面经和随笔正文。</p>
+              <p class="panel-desc">维护说明书、开发日志、工具箱、面经和随笔正文，保存为文章 Markdown 文件。</p>
             </div>
-            <button class="btn secondary" id="newArticle" type="button">新增文章</button>
+            <div class="panel-actions">
+              <button class="btn secondary" id="importArticle" type="button">导入 Markdown</button>
+              <button class="btn secondary" id="exportArticle" type="button">导出当前</button>
+              <button class="btn secondary" id="uploadArticleImage" type="button">上传图片</button>
+              <button class="btn secondary" id="contentAudit" type="button">内容体检</button>
+              <button class="btn secondary" id="downloadArticleTemplate" type="button">下载模板</button>
+              <button class="btn secondary" id="newArticle" type="button">新增文章</button>
+              <input id="articleImportFile" class="hidden-file-input" type="file" accept=".md,text/markdown,text/plain" multiple />
+              <input id="articleImageFile" class="hidden-file-input" type="file" accept="image/jpeg,image/png,image/webp,image/gif" />
+            </div>
           </div>
           <div class="admin-workbench">
             <div class="editor-surface record-editor">
               <div id="articleList" class="record-list"></div>
               <form id="articleForm" class="admin-form article-form"></form>
+              <section id="articleImportPanel" class="import-panel hidden"></section>
+              <section id="contentAuditPanel" class="import-panel hidden"></section>
             </div>
             <aside class="preview-surface">
               <div class="preview-head">
@@ -620,6 +641,206 @@ const authed = isAuthed({ cookies: Astro.cookies });
       flex-wrap: wrap;
       gap: 10px;
       padding-top: 4px;
+    }
+
+    .panel-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    .hidden-file-input {
+      display: none;
+    }
+
+    .import-panel {
+      grid-column: 1 / -1;
+      display: grid;
+      gap: 14px;
+      padding: 16px;
+      border: 1px solid rgba(90, 215, 242, 0.22);
+      border-radius: 20px;
+      background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.88), rgba(240, 249, 255, 0.68));
+      box-shadow: 0 16px 38px rgba(90, 215, 242, 0.11);
+    }
+
+    .import-panel-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .import-panel h3,
+    .import-panel p {
+      margin: 0;
+    }
+
+    .import-panel h3 {
+      font-family: var(--font-display);
+      font-size: 18px;
+    }
+
+    .import-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .import-field {
+      display: grid;
+      gap: 4px;
+      min-width: 0;
+      padding: 10px 12px;
+      border: 1px solid rgba(135, 196, 237, 0.16);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.68);
+    }
+
+    .import-field span {
+      color: var(--text-tertiary);
+      font-size: 11px;
+      font-weight: 900;
+    }
+
+    .import-field strong {
+      overflow-wrap: anywhere;
+      color: var(--text-primary);
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    .import-body-preview {
+      max-height: 180px;
+      overflow: auto;
+      padding: 12px 14px;
+      border: 1px solid rgba(135, 196, 237, 0.16);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.72);
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+    }
+
+    .import-warning,
+    .import-errors {
+      padding: 10px 12px;
+      border-radius: 14px;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .import-warning {
+      border: 1px solid rgba(245, 158, 11, 0.25);
+      background: rgba(254, 243, 199, 0.68);
+      color: #8a5a00;
+    }
+
+    .import-errors {
+      border: 1px solid rgba(239, 68, 68, 0.22);
+      background: rgba(254, 226, 226, 0.72);
+      color: #9f1239;
+    }
+
+    .import-options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      color: var(--text-secondary);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .import-options label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+
+    .import-options input {
+      accent-color: var(--bright-cyan);
+    }
+
+    .source-path-card {
+      grid-column: 1 / -1;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 12px 14px;
+      border: 1px solid rgba(135, 196, 237, 0.16);
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.66);
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+      font-size: 12px;
+    }
+
+    .article-tool-row {
+      grid-column: 1 / -1;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .article-tool-row select {
+      width: auto;
+      min-width: 180px;
+      min-height: 40px;
+      padding: 8px 10px;
+      border: 1px solid rgba(135, 196, 237, 0.26);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.86);
+      color: var(--text-primary);
+    }
+
+    .markdown-preview {
+      display: none;
+      min-height: 360px;
+      max-height: 640px;
+      overflow: auto;
+      padding: 18px;
+      border: 1px solid rgba(135, 196, 237, 0.16);
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.8);
+      color: var(--text-secondary);
+      line-height: 1.75;
+    }
+
+    .markdown-preview.active {
+      display: block;
+    }
+
+    .markdown-preview h1,
+    .markdown-preview h2,
+    .markdown-preview h3 {
+      color: var(--text-primary);
+      font-family: var(--font-display);
+    }
+
+    .markdown-preview code,
+    .markdown-preview pre {
+      font-family: var(--font-mono);
+      background: rgba(15, 23, 42, 0.06);
+      border-radius: 8px;
+    }
+
+    .markdown-preview pre {
+      overflow: auto;
+      padding: 12px;
+    }
+
+    .content-textarea.hidden {
+      display: none;
     }
 
     @media (max-width: 1440px) {
@@ -1288,6 +1509,10 @@ const authed = isAuthed({ cookies: Astro.cookies });
     }
 
     @media (max-width: 760px) {
+      .import-grid {
+        grid-template-columns: 1fr;
+      }
+
       .content-editor-grid {
         grid-template-columns: 1fr;
       }
@@ -1337,14 +1562,35 @@ const authed = isAuthed({ cookies: Astro.cookies });
     const studio = document.querySelector('#studio');
     if (studio) {
       let state = { settings: {}, projects: [], articles: [] };
+      let savedSnapshot = { settings: {}, projects: [], articles: [] };
       let projectIndex = 0;
       let articleIndex = 0;
       let isDirty = false;
+      let articleImportDraft = null;
 
       const qs = (selector) => document.querySelector(selector);
       const qsa = (selector) => Array.from(document.querySelectorAll(selector));
       const splitList = (value) => String(value || '').split(',').map((item) => item.trim()).filter(Boolean);
       const lines = (value) => String(value || '').split('\n').map((item) => item.trim()).filter(Boolean);
+      const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+      const articleKinds = ['spec', 'devlog', 'tool', 'interview', 'job', 'resume', 'essay'];
+      const articleStatuses = ['draft', 'published'];
+      const articleKindDefaults = {
+        spec: '项目说明书',
+        devlog: '开发日志',
+        tool: '工具箱',
+        interview: '面经实录',
+        job: '求职心路',
+        resume: '简历经验',
+        essay: '随笔'
+      };
+      const articleTemplates = {
+        devlog: '## 背景\\n\\n这次改动从什么问题开始？\\n\\n## 实现\\n\\n核心实现路径、关键取舍和遇到的坑。\\n\\n## 结果\\n\\n现在完成了什么，还剩什么。\\n\\n## 下一步\\n\\n接下来准备继续推进的事项。\\n',
+        spec: '## 目标\\n\\n这个项目要解决什么问题？\\n\\n## 内容模型\\n\\n- 核心实体\\n- 页面入口\\n- 数据流向\\n\\n## 技术方案\\n\\n为什么这样设计？\\n\\n## 维护方式\\n\\n如何持续更新和部署。\\n',
+        tool: '## 适用场景\\n\\n什么时候会用到这个工具？\\n\\n## 使用方式\\n\\n```bash\\n# command here\\n```\\n\\n## 注意事项\\n\\n容易踩坑的地方。\\n',
+        interview: '## 提问内容\\n\\n- 问题一\\n- 问题二\\n\\n## 回答思路\\n\\n先说结论，再补原理，最后给工程实践。\\n\\n## 事后反思\\n\\n哪些地方答得好，哪些地方需要补。\\n',
+        essay: '## 记录\\n\\n这个月最值得记录的一件事。\\n\\n## 变化\\n\\n我做出了什么调整？\\n\\n## 复盘\\n\\n下个月要继续坚持或修正什么。\\n'
+      };
       const escapeHtml = (value) => String(value ?? '')
         .replaceAll('&', '&amp;')
         .replaceAll('<', '&lt;')
@@ -1357,6 +1603,506 @@ const authed = isAuthed({ cookies: Astro.cookies });
         return { label: (label || '').trim(), value: nextValue };
       }).filter((item) => item.label);
       const progressToText = (items) => (items || []).map((item) => `${item.label}:${item.value}`).join('\n');
+      const today = () => new Date().toISOString().slice(0, 10);
+
+      function parseFrontmatterScalar(value) {
+        const next = String(value || '').trim();
+        if (next === 'true') return true;
+        if (next === 'false') return false;
+        if (/^-?\d+(\.\d+)?$/.test(next)) return Number(next);
+        if ((next.startsWith('"') && next.endsWith('"')) || (next.startsWith("'") && next.endsWith("'"))) {
+          try {
+            return JSON.parse(next);
+          } catch {
+            return next.slice(1, -1);
+          }
+        }
+        return next;
+      }
+
+      function parseFrontmatter(markdown) {
+        const source = String(markdown || '').replace(/\r\n/g, '\n').replace(/^\uFEFF/, '').trimStart();
+        if (!source.startsWith('---\n')) return { data: {}, body: source.trimStart(), hasFrontmatter: false };
+        const closingMatch = source.slice(4).match(/\n---[ \t]*(?:\n|$)/);
+        if (!closingMatch || closingMatch.index === undefined) return { data: {}, body: source.trimStart(), hasFrontmatter: false };
+
+        const data = {};
+        const closingIndex = 4 + closingMatch.index;
+        const closingEnd = closingIndex + closingMatch[0].length;
+        const frontmatter = source.slice(4, closingIndex).trim();
+        const body = source.slice(closingEnd).replace(/^\n/, '');
+        const rows = frontmatter.split('\n');
+        for (let index = 0; index < rows.length; index += 1) {
+          const row = rows[index];
+          if (!row.trim() || row.trimStart().startsWith('#') || row.startsWith(' ') || row.startsWith('\t')) continue;
+          const match = row.match(/^([A-Za-z][\w-]*):(?:\s*(.*))?$/);
+          if (!match) continue;
+          const key = match[1];
+          const rawValue = match[2] || '';
+          if (rawValue.trim()) {
+            data[key] = parseFrontmatterScalar(rawValue);
+            continue;
+          }
+          const items = [];
+          while (index + 1 < rows.length && /^\s+-\s+/.test(rows[index + 1])) {
+            index += 1;
+            items.push(String(parseFrontmatterScalar(rows[index].replace(/^\s+-\s+/, ''))));
+          }
+          data[key] = items;
+        }
+        return { data, body, hasFrontmatter: true };
+      }
+
+      function valueAsString(value) {
+        return typeof value === 'string' ? value : value === undefined || value === null ? '' : String(value);
+      }
+
+      function valueAsList(value) {
+        return Array.isArray(value) ? value.map(String).filter(Boolean) : [];
+      }
+
+      function slugify(value) {
+        return String(value || '')
+          .toLowerCase()
+          .trim()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '');
+      }
+
+      function parseArticleMarkdown(markdown, fileName = '') {
+        const { data, body, hasFrontmatter } = parseFrontmatter(markdown);
+        const fileSlug = slugify(fileName.replace(/\.[^.]+$/, ''));
+        const kind = articleKinds.includes(valueAsString(data.kind)) ? valueAsString(data.kind) : 'devlog';
+        const slug = valueAsString(data.slug) || fileSlug || slugify(data.title) || `imported-${Date.now()}`;
+        const article = {
+          slug,
+          title: valueAsString(data.title),
+          date: valueAsString(data.date) || today(),
+          kind,
+          category: valueAsString(data.category) || articleKindDefaults[kind],
+          projectSlug: valueAsString(data.projectSlug),
+          lifecycle: valueAsString(data.lifecycle),
+        tags: valueAsList(data.tags),
+          status: articleStatuses.includes(valueAsString(data.status)) ? valueAsString(data.status) : 'draft',
+          company: valueAsString(data.company),
+          position: valueAsString(data.position),
+          excerpt: valueAsString(data.excerpt),
+          content: body.trim()
+        };
+        return { article, hasFrontmatter };
+      }
+
+      function validateImportedArticle(article, hasFrontmatter) {
+        const errors = [];
+        if (!hasFrontmatter) errors.push('文件需要包含 frontmatter，格式以 --- 开始和结束。');
+        if (!article.title) errors.push('frontmatter.title 不能为空。');
+        if (!slugPattern.test(article.slug)) errors.push('slug 只能使用小写字母、数字和短横线。');
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(article.date) || Number.isNaN(Date.parse(`${article.date}T00:00:00.000Z`))) {
+          errors.push('date 必须是 YYYY-MM-DD 格式。');
+        }
+        if (!articleKinds.includes(article.kind)) errors.push('kind 必须是 spec、devlog、tool、interview、job、resume 或 essay。');
+        if (!articleStatuses.includes(article.status)) errors.push('status 必须是 draft 或 published。');
+        if (article.projectSlug && !slugPattern.test(article.projectSlug)) errors.push('projectSlug 只能使用小写字母、数字和短横线。');
+        if (article.lifecycle && !['ongoing', 'archived'].includes(article.lifecycle)) errors.push('lifecycle 只能是 ongoing、archived 或留空。');
+        if (!article.content) errors.push('正文不能为空。');
+        return errors;
+      }
+
+      function makeUniqueArticleSlug(slug) {
+        const taken = new Set(state.articles.map((article) => article.slug));
+        let next = slugPattern.test(slug) ? slug : 'imported-article';
+        let counter = 2;
+        while (taken.has(next)) {
+          next = `${slug}-${counter}`;
+          counter += 1;
+        }
+        return next;
+      }
+
+      function renderArticleImportPanel() {
+        const panel = qs('#articleImportPanel');
+        if (!panel) return;
+        if (!articleImportDraft) {
+          panel.classList.add('hidden');
+          panel.innerHTML = '';
+          return;
+        }
+
+        const { article, errors, fileName, existingIndex } = articleImportDraft;
+        const hasConflict = existingIndex >= 0;
+        panel.classList.remove('hidden');
+        panel.innerHTML = `
+          <div class="import-panel-head">
+            <div>
+              <p class="eyebrow">Markdown Import</p>
+              <h3>${escapeHtml(fileName)}</h3>
+            </div>
+            <button class="btn secondary" id="cancelArticleImport" type="button">取消</button>
+          </div>
+          ${errors.length ? `<div class="import-errors">${errors.map((error) => `<div>${escapeHtml(error)}</div>`).join('')}</div>` : ''}
+          ${hasConflict ? `<div class="import-warning">已存在 slug 为 ${escapeHtml(article.slug)} 的文章。请选择覆盖已有文章，或另存为新文章。</div>` : ''}
+          <div class="import-grid">
+            <div class="import-field"><span>标题</span><strong>${escapeHtml(article.title || '未填写')}</strong></div>
+            <div class="import-field"><span>Slug</span><strong>${escapeHtml(article.slug)}</strong></div>
+            <div class="import-field"><span>日期</span><strong>${escapeHtml(article.date)}</strong></div>
+            <div class="import-field"><span>类型</span><strong>${escapeHtml(article.kind)}</strong></div>
+            <div class="import-field"><span>分类</span><strong>${escapeHtml(article.category || '未填写')}</strong></div>
+            <div class="import-field"><span>标签</span><strong>${escapeHtml((article.tags || []).join(', ') || '无')}</strong></div>
+          </div>
+          <pre class="import-body-preview">${escapeHtml(article.content.slice(0, 1200) || '正文为空')}</pre>
+          ${hasConflict ? `
+            <div class="import-options">
+              <label><input type="radio" name="articleImportMode" value="replace" ${articleImportDraft.mode === 'replace' ? 'checked' : ''} />覆盖已有文章</label>
+              <label><input type="radio" name="articleImportMode" value="new" ${articleImportDraft.mode === 'new' ? 'checked' : ''} />另存为新文章</label>
+            </div>
+          ` : ''}
+          <div class="form-actions">
+            <button class="btn" id="confirmArticleImport" type="button" ${errors.length ? 'disabled' : ''}>确认导入</button>
+          </div>
+        `;
+
+        qs('#cancelArticleImport')?.addEventListener('click', () => {
+          articleImportDraft = null;
+          renderArticleImportPanel();
+        });
+        qsa('input[name="articleImportMode"]').forEach((input) => input.addEventListener('change', () => {
+          articleImportDraft.mode = input.value;
+        }));
+        qs('#confirmArticleImport')?.addEventListener('click', confirmArticleImport);
+      }
+
+      function confirmArticleImport() {
+        if (!articleImportDraft || articleImportDraft.errors.length) return;
+        readArticleForm();
+        const imported = { ...articleImportDraft.article, tags: [...articleImportDraft.article.tags] };
+        if (articleImportDraft.existingIndex >= 0 && articleImportDraft.mode === 'replace') {
+          state.articles[articleImportDraft.existingIndex] = imported;
+          articleIndex = articleImportDraft.existingIndex;
+        } else {
+          imported.slug = makeUniqueArticleSlug(imported.slug);
+          state.articles.unshift(imported);
+          articleIndex = 0;
+        }
+        articleImportDraft = null;
+        setDirty(true);
+        renderArticles();
+        qs('#saveMessage').textContent = '已导入到编辑列表，点击“保存全部”后写入 Markdown 文件。';
+      }
+
+      function downloadTemplate() {
+        const template = `---\nslug: \"my-devlog\"\ntitle: \"一次开发日志\"\ndate: \"${today()}\"\nstatus: \"draft\"\nkind: \"devlog\"\ncategory: \"开发日志\"\nprojectSlug: \"codepulse-blog\"\nlifecycle: \"ongoing\"\ntags:\n  - \"Astro\"\n  - \"Markdown\"\ncompany: \"\"\nposition: \"\"\nexcerpt: \"这里写文章摘要。\"\n---\n\n## 背景\n\n这里开始写正文。\n`;
+        const url = URL.createObjectURL(new Blob([template], { type: 'text/markdown;charset=utf-8' }));
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `article-template-${today()}.md`;
+        document.body.append(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+      }
+
+      function quoteYaml(value) {
+        return JSON.stringify(String(value ?? ''));
+      }
+
+      function stringifyFrontmatter(data) {
+        const rows = ['---'];
+        Object.entries(data).forEach(([key, value]) => {
+          if (Array.isArray(value)) {
+            rows.push(`${key}:`);
+            value.forEach((item) => rows.push(`  - ${quoteYaml(item)}`));
+          } else if (typeof value === 'boolean' || typeof value === 'number') {
+            rows.push(`${key}: ${value}`);
+          } else {
+            rows.push(`${key}: ${quoteYaml(value)}`);
+          }
+        });
+        rows.push('---');
+        return `${rows.join('\n')}\n\n`;
+      }
+
+      function articleToMarkdown(article) {
+        return `${stringifyFrontmatter({
+          slug: article.slug,
+          title: article.title,
+          date: article.date,
+          status: article.status || 'draft',
+          kind: article.kind,
+          category: article.category,
+          projectSlug: article.projectSlug || '',
+          lifecycle: article.lifecycle || '',
+          tags: article.tags || [],
+          company: article.company || '',
+          position: article.position || '',
+          excerpt: article.excerpt || ''
+        })}${String(article.content || '').trim()}\n`;
+      }
+
+      function markdownList(items) {
+        return items?.length ? items.map((item) => `- ${item}`).join('\n') : '- ';
+      }
+
+      function projectToMarkdown(project) {
+        return `${stringifyFrontmatter({
+          slug: project.slug,
+          name: project.name,
+          status: project.status,
+          statusLabel: project.statusLabel,
+          tech: project.tech || [],
+          progress: (project.progress || []).map((item) => `${item.label}:${item.value}`),
+          releaseNote: project.releaseNote || '',
+          featured: Boolean(project.featured)
+        })}## 项目简介\n\n${project.summary || ''}\n\n## 近期进展\n\n${project.monthUpdate || ''}\n\n## 架构流程\n\n${markdownList(project.architecture || [])}\n`;
+      }
+
+      function settingsToMarkdown(settings) {
+        return `${stringifyFrontmatter({
+          siteTitle: settings.siteTitle,
+          siteSubtitle: settings.siteSubtitle,
+          ownerName: settings.ownerName,
+          ownerInitial: settings.ownerInitial,
+          identity: settings.identity,
+          github: settings.github,
+          email: settings.email,
+          location: settings.location,
+          adminTitle: settings.adminTitle
+        })}## 博客简介\n\n${settings.bio || ''}\n\n## 状态播报\n\n${settings.status || ''}\n`;
+      }
+
+      function extractSection(body, heading) {
+        const source = String(body || '').replace(/\r\n/g, '\n');
+        const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const match = source.match(new RegExp(`^##\\s+${escaped}\\s*$`, 'm'));
+        if (!match || match.index === undefined) return '';
+        const rest = source.slice(match.index + match[0].length).replace(/^\n+/, '');
+        const nextHeading = rest.search(/^##\s+/m);
+        return (nextHeading === -1 ? rest : rest.slice(0, nextHeading)).trim();
+      }
+
+      function listFromSection(body, heading) {
+        return extractSection(body, heading).split('\n').map((line) => line.trim().replace(/^-\s+/, '')).filter(Boolean);
+      }
+
+      function parseSettingsMarkdown(markdown) {
+        const { data, body, hasFrontmatter } = parseFrontmatter(markdown);
+        if (!hasFrontmatter) throw new Error('设置文件需要 frontmatter。');
+        return {
+          siteTitle: valueAsString(data.siteTitle),
+          siteSubtitle: valueAsString(data.siteSubtitle),
+          ownerName: valueAsString(data.ownerName),
+          ownerInitial: valueAsString(data.ownerInitial),
+          identity: valueAsString(data.identity),
+          github: valueAsString(data.github),
+          email: valueAsString(data.email),
+          location: valueAsString(data.location),
+          adminTitle: valueAsString(data.adminTitle),
+          bio: extractSection(body, '博客简介') || valueAsString(data.bio),
+          status: extractSection(body, '状态播报') || valueAsString(data.status)
+        };
+      }
+
+      function parseProjectMarkdown(markdown, fileName = '') {
+        const { data, body, hasFrontmatter } = parseFrontmatter(markdown);
+        if (!hasFrontmatter) throw new Error('项目文件需要 frontmatter。');
+        return {
+          slug: valueAsString(data.slug) || slugify(fileName.replace(/\.[^.]+$/, '')),
+          name: valueAsString(data.name),
+          status: valueAsString(data.status) || 'ongoing',
+          statusLabel: valueAsString(data.statusLabel),
+          tech: valueAsList(data.tech),
+          progress: progressFromText(valueAsList(data.progress).join('\n')),
+          summary: extractSection(body, '项目简介'),
+          monthUpdate: extractSection(body, '近期进展'),
+          releaseNote: valueAsString(data.releaseNote),
+          architecture: listFromSection(body, '架构流程'),
+          featured: data.featured === true || data.featured === 'true'
+        };
+      }
+
+      function downloadText(fileName, body) {
+        const url = URL.createObjectURL(new Blob([body], { type: 'text/markdown;charset=utf-8' }));
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        document.body.append(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+      }
+
+      function inlineMarkdownPreview(value) {
+        return escapeHtml(value)
+          .replace(/`([^`]+)`/g, '<code>$1</code>')
+          .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+          .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>');
+      }
+
+      function renderMarkdownPreview(markdown = '') {
+        const rows = String(markdown || '').replace(/\r\n/g, '\n').split('\n');
+        const html = [];
+        let inList = false;
+        let inCode = false;
+        const codeRows = [];
+        const closeList = () => {
+          if (inList) {
+            html.push('</ul>');
+            inList = false;
+          }
+        };
+        rows.forEach((row) => {
+          if (row.trim().startsWith('```')) {
+            if (inCode) {
+              html.push(`<pre><code>${escapeHtml(codeRows.join('\n'))}</code></pre>`);
+              codeRows.length = 0;
+              inCode = false;
+            } else {
+              closeList();
+              inCode = true;
+            }
+            return;
+          }
+          if (inCode) {
+            codeRows.push(row);
+            return;
+          }
+          if (!row.trim()) {
+            closeList();
+            return;
+          }
+          if (row.startsWith('### ')) {
+            closeList();
+            html.push(`<h3>${inlineMarkdownPreview(row.slice(4))}</h3>`);
+          } else if (row.startsWith('## ')) {
+            closeList();
+            html.push(`<h2>${inlineMarkdownPreview(row.slice(3))}</h2>`);
+          } else if (row.startsWith('# ')) {
+            closeList();
+            html.push(`<h1>${inlineMarkdownPreview(row.slice(2))}</h1>`);
+          } else if (row.startsWith('- ')) {
+            if (!inList) {
+              html.push('<ul>');
+              inList = true;
+            }
+            html.push(`<li>${inlineMarkdownPreview(row.slice(2))}</li>`);
+          } else {
+            closeList();
+            html.push(`<p>${inlineMarkdownPreview(row)}</p>`);
+          }
+        });
+        if (inCode) html.push(`<pre><code>${escapeHtml(codeRows.join('\n'))}</code></pre>`);
+        closeList();
+        return html.join('\n');
+      }
+
+      function stableStringify(value) {
+        return JSON.stringify(value ?? null);
+      }
+
+      function buildDiffSummary() {
+        const articleBefore = new Map((savedSnapshot.articles || []).map((article) => [article.slug, article]));
+        const articleAfter = new Map((state.articles || []).map((article) => [article.slug, article]));
+        const projectBefore = new Map((savedSnapshot.projects || []).map((project) => [project.slug, project]));
+        const projectAfter = new Map((state.projects || []).map((project) => [project.slug, project]));
+        const added = [];
+        const changed = [];
+        const removed = [];
+        const projectChanges = [];
+        articleAfter.forEach((article, slug) => {
+          if (!articleBefore.has(slug)) added.push(article.title || slug);
+          else if (stableStringify(articleBefore.get(slug)) !== stableStringify(article)) changed.push(article.title || slug);
+        });
+        articleBefore.forEach((article, slug) => {
+          if (!articleAfter.has(slug)) removed.push(article.title || slug);
+        });
+        projectAfter.forEach((project, slug) => {
+          if (!projectBefore.has(slug)) projectChanges.push(`新增 ${project.name || slug}`);
+          else if (stableStringify(projectBefore.get(slug)) !== stableStringify(project)) projectChanges.push(`修改 ${project.name || slug}`);
+        });
+        projectBefore.forEach((project, slug) => {
+          if (!projectAfter.has(slug)) projectChanges.push(`删除 ${project.name || slug}`);
+        });
+        const settingsChanged = stableStringify(savedSnapshot.settings) !== stableStringify(state.settings);
+        return { added, changed, removed, projectChanges, settingsChanged };
+      }
+
+      function confirmSaveDiff() {
+        const diff = buildDiffSummary();
+        const lines = [
+          '保存前差异预览：',
+          `新增文章：${diff.added.length ? diff.added.join('、') : '无'}`,
+          `修改文章：${diff.changed.length ? diff.changed.join('、') : '无'}`,
+          `删除文章：${diff.removed.length ? diff.removed.join('、') : '无'}`,
+          `项目变化：${diff.projectChanges.length ? diff.projectChanges.join('、') : '无'}`,
+          `站点设置：${diff.settingsChanged ? '有修改' : '无修改'}`,
+          '',
+          '确认后会写入 content 目录下的 Markdown 文件。'
+        ];
+        return confirm(lines.join('\n'));
+      }
+
+      function buildContentIssues() {
+        const issues = [];
+        const projectSlugs = new Set(state.projects.map((project) => project.slug));
+        const articleSlugs = new Set();
+        state.articles.forEach((article) => {
+          if (articleSlugs.has(article.slug)) issues.push(`文章 slug 重复：${article.slug}`);
+          articleSlugs.add(article.slug);
+          if (!article.title) issues.push(`${article.slug || '未命名文章'} 缺少标题`);
+          if (!article.excerpt) issues.push(`${article.title || article.slug} 缺少摘要`);
+          if (!article.content) issues.push(`${article.title || article.slug} 正文为空`);
+          if (!slugPattern.test(article.slug || '')) issues.push(`${article.title || '未命名文章'} slug 不合法`);
+          if (article.projectSlug && !projectSlugs.has(article.projectSlug)) {
+            issues.push(`${article.title || article.slug} 关联了不存在的项目：${article.projectSlug}`);
+          }
+          const imageMatches = String(article.content || '').matchAll(/!\[[^\]]*\]\(([^)]+)\)/g);
+          for (const match of imageMatches) {
+            const imagePath = match[1];
+            if (!imagePath.startsWith('/') && !/^https?:\/\//i.test(imagePath)) {
+              issues.push(`${article.title || article.slug} 使用了相对图片路径：${imagePath}`);
+            }
+          }
+        });
+        state.projects.forEach((project) => {
+          if (!project.name) issues.push(`${project.slug || '未命名项目'} 缺少项目名称`);
+          if (!project.summary) issues.push(`${project.name || project.slug} 缺少项目简介`);
+        });
+        return issues;
+      }
+
+      function renderContentAudit() {
+        readProjectForm();
+        readArticleForm();
+        const panel = qs('#contentAuditPanel');
+        const issues = buildContentIssues();
+        panel.classList.remove('hidden');
+        panel.innerHTML = `
+          <div class="import-panel-head">
+            <div>
+              <p class="eyebrow">Content Audit</p>
+              <h3>内容体检</h3>
+            </div>
+            <button class="btn secondary" id="closeContentAudit" type="button">关闭</button>
+          </div>
+          ${issues.length ? `<div class="import-errors">${issues.map((issue) => `<div>${escapeHtml(issue)}</div>`).join('')}</div>` : '<div class="import-warning">没有发现明显问题。</div>'}
+        `;
+        qs('#closeContentAudit').addEventListener('click', () => {
+          panel.classList.add('hidden');
+          panel.innerHTML = '';
+        });
+      }
+
+      function insertIntoArticleContent(text) {
+        const textarea = qs('#articleForm textarea[name="content"]');
+        if (!textarea) return;
+        textarea.classList.remove('hidden');
+        qs('#markdownPreview')?.classList.remove('active');
+        const start = textarea.selectionStart ?? textarea.value.length;
+        const end = textarea.selectionEnd ?? textarea.value.length;
+        textarea.value = `${textarea.value.slice(0, start)}${text}${textarea.value.slice(end)}`;
+        textarea.focus();
+        textarea.selectionStart = textarea.selectionEnd = start + text.length;
+        setDirty(true);
+      }
 
       function setDirty(value = true) {
         isDirty = value;
@@ -1581,7 +2327,7 @@ const authed = isAuthed({ cookies: Astro.cookies });
 
       function renderArticleList() {
         qs('#articleList').innerHTML = state.articles.map((article, index) => (
-          `<button class="record-item ${index === articleIndex ? 'active' : ''}" type="button" data-article="${index}"><strong>${escapeHtml(article.title)}</strong><br><span>${escapeHtml(article.kind)} · ${escapeHtml(article.date)}</span></button>`
+          `<button class="record-item ${index === articleIndex ? 'active' : ''}" type="button" data-article="${index}"><strong>${escapeHtml(article.title)}</strong><br><span>${escapeHtml(article.status || 'draft')} · ${escapeHtml(article.kind)} · ${escapeHtml(article.date)}</span></button>`
         )).join('');
         qsa('[data-article]').forEach((button) => button.addEventListener('click', () => {
           readArticleForm();
@@ -1592,11 +2338,18 @@ const authed = isAuthed({ cookies: Astro.cookies });
 
       function renderArticleForm() {
         const a = state.articles[articleIndex] || {};
+        const sourcePath = a.slug ? `content/articles/${a.slug}.md` : '保存后生成 Markdown 文件';
         qs('#articleForm').innerHTML = `
+          <div class="source-path-card">
+            <span>源文件：${escapeHtml(sourcePath)}</span>
+            <button class="btn secondary" id="copyArticlePath" type="button">复制路径</button>
+          </div>
           ${editorBlock('01', '文章标题区', `
             ${field('title', '文章标题', a.title, { full: true, tone: 'article-title-field title-field', placeholder: '写一个清晰、有辨识度的标题' })}
             ${field('slug', '访问路径 Slug', a.slug, { tone: 'mono-field', placeholder: 'article-slug' })}
             ${field('date', '发布日期', a.date, { inputType: 'date' })}
+            ${field('status', '发布状态', a.status || 'draft', { type: 'select', choices: [{ value: 'draft', label: '草稿' }, { value: 'published', label: '发布' }] })}
+            <div class="form-actions"><button class="btn secondary" id="generateArticleSlug" type="button">根据标题生成 Slug</button></div>
           `, 'article-heading-block')}
 
           ${editorBlock('02', '归类与关联', `
@@ -1618,12 +2371,57 @@ const authed = isAuthed({ cookies: Astro.cookies });
           `, 'article-meta-block')}
 
           ${editorBlock('03', '正文写作区', `
+            <div class="article-tool-row">
+              <select id="articleTemplateSelect" aria-label="内容模板">
+                <option value="">选择内容模板</option>
+                <option value="devlog">开发日志模板</option>
+                <option value="spec">项目说明书模板</option>
+                <option value="tool">工具箱模板</option>
+                <option value="interview">面经复盘模板</option>
+                <option value="essay">月度总结模板</option>
+              </select>
+              <button class="btn secondary" id="applyArticleTemplate" type="button">套用模板</button>
+              <button class="btn secondary" id="showMarkdownSource" type="button">源码</button>
+              <button class="btn secondary" id="showMarkdownPreview" type="button">预览</button>
+            </div>
             ${field('excerpt', '文章摘要', a.excerpt, { type: 'textarea', full: true, size: 'area-md', rows: 5, placeholder: '摘要会出现在列表和文章页头部。' })}
             ${field('content', '正文 Markdown', a.content, { type: 'textarea', full: true, content: true, size: 'area-xl', rows: 18, placeholder: '## 小标题\\n\\n开始写正文...' })}
+            <div id="markdownPreview" class="markdown-preview full"></div>
           `, 'article-writing-block')}
 
           <div class="form-actions"><button class="btn secondary" id="deleteArticle" type="button">删除文章</button></div>
         `;
+        qs('#copyArticlePath').addEventListener('click', async () => {
+          await navigator.clipboard?.writeText(sourcePath).catch(() => undefined);
+          qs('#saveMessage').textContent = '源文件路径已复制。';
+        });
+        qs('#generateArticleSlug').addEventListener('click', () => {
+          const formEl = qs('#articleForm');
+          const title = formEl.querySelector('[name="title"]')?.value || '';
+          const slugInput = formEl.querySelector('[name="slug"]');
+          const generated = slugify(title) || `post-${today()}`;
+          slugInput.value = makeUniqueArticleSlug(generated);
+          setDirty(true);
+        });
+        qs('#applyArticleTemplate').addEventListener('click', () => {
+          const template = articleTemplates[qs('#articleTemplateSelect').value];
+          if (!template) return;
+          const textarea = qs('#articleForm textarea[name="content"]');
+          if (textarea.value.trim() && !confirm('当前正文已有内容，确定用模板覆盖？')) return;
+          textarea.value = template.replaceAll('\\n', '\n');
+          setDirty(true);
+        });
+        qs('#showMarkdownSource').addEventListener('click', () => {
+          qs('#articleForm textarea[name="content"]').classList.remove('hidden');
+          qs('#markdownPreview').classList.remove('active');
+        });
+        qs('#showMarkdownPreview').addEventListener('click', () => {
+          const textarea = qs('#articleForm textarea[name="content"]');
+          const preview = qs('#markdownPreview');
+          preview.innerHTML = renderMarkdownPreview(textarea.value);
+          textarea.classList.add('hidden');
+          preview.classList.add('active');
+        });
         qs('#deleteArticle').addEventListener('click', () => {
           if (!confirm('确定删除当前文章？保存后才会真正写入。')) return;
           state.articles.splice(articleIndex, 1);
@@ -1641,6 +2439,7 @@ const authed = isAuthed({ cookies: Astro.cookies });
           slug: form.get('slug'),
           title: form.get('title'),
           date: form.get('date'),
+          status: form.get('status'),
           kind: form.get('kind'),
           category: form.get('category'),
           projectSlug: form.get('projectSlug'),
@@ -1692,6 +2491,7 @@ const authed = isAuthed({ cookies: Astro.cookies });
           slug: `new-article-${Date.now()}`,
           title: '新文章',
           date: new Date().toISOString().slice(0, 10),
+          status: 'draft',
           kind: 'devlog',
           category: '开发日志',
           projectSlug: '',
@@ -1705,10 +2505,194 @@ const authed = isAuthed({ cookies: Astro.cookies });
         renderArticles();
       });
 
+      qs('#importArticle').addEventListener('click', () => {
+        const input = qs('#articleImportFile');
+        input.value = '';
+        input.click();
+      });
+
+      qs('#downloadArticleTemplate').addEventListener('click', downloadTemplate);
+      qs('#exportArticle').addEventListener('click', () => {
+        readArticleForm();
+        const article = state.articles[articleIndex];
+        if (!article) return;
+        downloadText(`${article.slug || 'article'}.md`, articleToMarkdown(article));
+      });
+
+      qs('#contentAudit').addEventListener('click', renderContentAudit);
+
+      qs('#uploadArticleImage').addEventListener('click', () => {
+        const input = qs('#articleImageFile');
+        input.value = '';
+        input.click();
+      });
+
+      qs('#articleImageFile').addEventListener('change', async (event) => {
+        event.stopPropagation();
+        const file = event.target.files?.[0];
+        if (!file) return;
+        readArticleForm();
+        const article = state.articles[articleIndex] || {};
+        const formData = new FormData();
+        formData.set('image', file);
+        formData.set('articleSlug', article.slug || 'draft');
+        qs('#saveMessage').textContent = '正在上传图片...';
+        try {
+          const response = await fetch('/api/admin/upload-image', { method: 'POST', body: formData });
+          const result = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            qs('#saveMessage').textContent = result.error || '图片上传失败。';
+            return;
+          }
+          insertIntoArticleContent(`\n![${file.name.replace(/\.[^.]+$/, '')}](${result.path})\n`);
+          qs('#saveMessage').textContent = '图片已上传，并插入正文。';
+        } catch {
+          qs('#saveMessage').textContent = '图片上传失败，请检查服务状态。';
+        }
+      });
+
+      qs('#articleImportFile').addEventListener('change', async (event) => {
+        event.stopPropagation();
+        const files = Array.from(event.target.files || []);
+        if (!files.length) return;
+        readArticleForm();
+        if (files.length > 1) {
+          const imported = [];
+          const errors = [];
+          for (const file of files) {
+            try {
+              const markdown = await file.text();
+              const { article, hasFrontmatter } = parseArticleMarkdown(markdown, file.name);
+              const nextErrors = validateImportedArticle(article, hasFrontmatter);
+              if (nextErrors.length) errors.push(`${file.name}：${nextErrors.join('；')}`);
+              else imported.push(article);
+            } catch {
+              errors.push(`${file.name}：读取失败，请确认文件是 UTF-8 编码。`);
+            }
+          }
+          if (errors.length) {
+            articleImportDraft = {
+              article: { slug: '', title: '', date: today(), status: 'draft', kind: 'devlog', category: '开发日志', projectSlug: '', lifecycle: '', tags: [], company: '', position: '', excerpt: '', content: '' },
+              fileName: '批量导入失败',
+              existingIndex: -1,
+              mode: 'new',
+              errors
+            };
+            renderArticleImportPanel();
+            return;
+          }
+          imported.reverse().forEach((article) => {
+            article.slug = makeUniqueArticleSlug(article.slug);
+            state.articles.unshift(article);
+          });
+          articleIndex = 0;
+          articleImportDraft = null;
+          setDirty(true);
+          renderArticles();
+          qs('#saveMessage').textContent = `已导入 ${imported.length} 篇文章，点击“保存全部”后写入 Markdown 文件。`;
+          return;
+        }
+
+        const file = files[0];
+        try {
+          const markdown = await file.text();
+          const { article, hasFrontmatter } = parseArticleMarkdown(markdown, file.name);
+          const existingIndex = state.articles.findIndex((item) => item.slug === article.slug);
+          articleImportDraft = {
+            article,
+            fileName: file.name,
+            existingIndex,
+            mode: existingIndex >= 0 ? 'replace' : 'new',
+            errors: validateImportedArticle(article, hasFrontmatter)
+          };
+        } catch {
+          articleImportDraft = {
+            article: {
+              slug: '',
+              title: '',
+              date: today(),
+              status: 'draft',
+              kind: 'devlog',
+              category: '开发日志',
+              projectSlug: '',
+              lifecycle: '',
+              tags: [],
+              company: '',
+              position: '',
+              excerpt: '',
+              content: ''
+            },
+            fileName: file.name,
+            existingIndex: -1,
+            mode: 'new',
+            errors: ['读取文件失败，请确认文件是 UTF-8 编码的 Markdown。']
+          };
+        }
+        renderArticleImportPanel();
+      });
+
+      qs('#exportProject').addEventListener('click', () => {
+        readProjectForm();
+        const project = state.projects[projectIndex];
+        if (!project) return;
+        downloadText(`${project.slug || 'project'}.md`, projectToMarkdown(project));
+      });
+
+      qs('#importProject').addEventListener('click', () => {
+        const input = qs('#projectImportFile');
+        input.value = '';
+        input.click();
+      });
+
+      qs('#projectImportFile').addEventListener('change', async (event) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        readProjectForm();
+        try {
+          const project = parseProjectMarkdown(await file.text(), file.name);
+          const index = state.projects.findIndex((item) => item.slug === project.slug);
+          if (index >= 0 && confirm(`项目 ${project.slug} 已存在，是否覆盖？`)) {
+            state.projects[index] = project;
+            projectIndex = index;
+          } else {
+            state.projects.unshift(project);
+            projectIndex = 0;
+          }
+          setDirty(true);
+          renderProjects();
+        } catch (error) {
+          qs('#saveMessage').textContent = error.message || '项目导入失败。';
+        }
+      });
+
+      qs('#exportSettings').addEventListener('click', () => {
+        readSettings();
+        downloadText('settings.md', settingsToMarkdown(state.settings));
+      });
+
+      qs('#importSettings').addEventListener('click', () => {
+        const input = qs('#settingsImportFile');
+        input.value = '';
+        input.click();
+      });
+
+      qs('#settingsImportFile').addEventListener('change', async (event) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        try {
+          state.settings = parseSettingsMarkdown(await file.text());
+          setDirty(true);
+          renderSettings();
+        } catch (error) {
+          qs('#saveMessage').textContent = error.message || '设置导入失败。';
+        }
+      });
+
       qs('#saveAll').addEventListener('click', async () => {
         readSettings();
         readProjectForm();
         readArticleForm();
+        if (!confirmSaveDiff()) return;
         const saveButton = qs('#saveAll');
         saveButton.disabled = true;
         qs('#saveMessage').textContent = '正在保存...';
@@ -1720,6 +2704,7 @@ const authed = isAuthed({ cookies: Astro.cookies });
           });
           const result = await response.json().catch(() => ({}));
           if (response.ok) {
+            savedSnapshot = JSON.parse(JSON.stringify(state));
             setDirty(false);
             qs('#saveMessage').textContent = `已保存，前台已刷新。${new Date().toLocaleTimeString()}`;
             syncPreviewFrames(result.version?.version || Date.now());
@@ -1752,6 +2737,7 @@ const authed = isAuthed({ cookies: Astro.cookies });
         .then((response) => response.json())
         .then((data) => {
           state = data;
+        savedSnapshot = JSON.parse(JSON.stringify(data));
         renderSettings();
         renderProjects();
         renderArticles();

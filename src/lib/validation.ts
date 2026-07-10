@@ -2,6 +2,7 @@ import type { Article, ArticleKind, Project, ProjectStatus, Settings } from './t
 
 const articleKinds: ArticleKind[] = ['spec', 'devlog', 'tool', 'interview', 'job', 'resume', 'essay'];
 const projectStatuses: ProjectStatus[] = ['ongoing', 'archived'];
+const articleStatuses = ['draft', 'published'];
 const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 export interface ContentPayload {
@@ -147,6 +148,8 @@ export function validateArticles(value: unknown): ValidationResult<Article[]> {
 
     const kind = articleKinds.includes(item.kind as ArticleKind) ? item.kind as ArticleKind : 'essay';
     if (!articleKinds.includes(item.kind as ArticleKind)) errors.push(`第 ${index + 1} 篇文章类型不正确`);
+    const status = articleStatuses.includes(item.status as string) ? item.status as Article['status'] : 'draft';
+    if (!articleStatuses.includes(item.status as string)) errors.push(`第 ${index + 1} 篇文章发布状态不正确`);
     const lifecycle = item.lifecycle === '' || projectStatuses.includes(item.lifecycle as ProjectStatus)
       ? item.lifecycle as ProjectStatus | ''
       : '';
@@ -158,6 +161,7 @@ export function validateArticles(value: unknown): ValidationResult<Article[]> {
       slug: requiredSlug(item.slug, `第 ${index + 1} 篇文章 slug`, errors),
       title: text(item.title, 140, `第 ${index + 1} 篇文章标题`, errors, true),
       date: dateText(item.date, `第 ${index + 1} 篇文章日期`, errors),
+      status,
       kind,
       category: text(item.category, 80, `第 ${index + 1} 篇文章分类`, errors),
       projectSlug: optionalSlug(item.projectSlug, `第 ${index + 1} 篇文章所属项目 slug`, errors),

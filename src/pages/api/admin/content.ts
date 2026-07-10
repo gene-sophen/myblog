@@ -20,7 +20,7 @@ export const GET: APIRoute = async (context) => {
   return json({
     settings: await getSettings(),
     projects: await getProjects(),
-    articles: await getArticles(),
+    articles: await getArticles({ includeDrafts: true }),
     version: await getContentVersion()
   });
 };

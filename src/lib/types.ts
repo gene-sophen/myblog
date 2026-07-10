@@ -1,5 +1,6 @@
 export type ProjectStatus = 'ongoing' | 'archived';
 export type ArticleKind = 'spec' | 'devlog' | 'tool' | 'interview' | 'job' | 'resume' | 'essay';
+export type ArticleStatus = 'draft' | 'published';
 
 export interface Settings {
   siteTitle: string;
@@ -38,6 +39,7 @@ export interface Article {
   slug: string;
   title: string;
   date: string;
+  status: ArticleStatus;
   kind: ArticleKind;
   category: string;
   projectSlug: string;

@@ -1,11 +1,13 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
-import { articleKindLabel, getArticle, getProject, getSettings } from '../../lib/content';
+import { isAuthed } from '../../lib/auth';
+import { articleKindLabel, getArticle, getArticleForPreview, getProject, getSettings } from '../../lib/content';
 import { renderMarkdown } from '../../lib/markdown';
 
 const settings = await getSettings();
 const { slug } = Astro.params;
-const article = slug ? await getArticle(slug) : undefined;
+const canPreviewDraft = Astro.url.searchParams.has('preview') && isAuthed({ cookies: Astro.cookies });
+const article = slug ? (canPreviewDraft ? await getArticleForPreview(slug) : await getArticle(slug)) : undefined;
 if (!article) return Astro.redirect('/');
 const project = article.projectSlug ? await getProject(article.projectSlug) : undefined;
 const html = renderMarkdown(article.content);
