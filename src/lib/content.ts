@@ -4,13 +4,14 @@ import type { Article, Project, Settings } from './types';
 
 const root = process.cwd();
 const dataDir = path.join(root, 'data');
-const backupDir = path.join(dataDir, '.backups');
 const backupLimit = 5;
-const contentDir = path.join(root, 'content');
+const configuredContentDir = process.env.CONTENT_DIR?.trim();
+const contentDir = path.resolve(configuredContentDir || path.join(root, 'content'));
 const articlesDir = path.join(contentDir, 'articles');
 const projectsDir = path.join(contentDir, 'projects');
 const settingsFile = path.join(contentDir, 'settings.md');
 const markdownBackupDir = path.join(contentDir, '.backups');
+const contentStateDir = path.join(contentDir, '.system');
 
 type FrontmatterValue = string | number | boolean | string[];
 type Frontmatter = Record<string, FrontmatterValue>;
@@ -289,8 +290,8 @@ function settingsFromMarkdown(data: Frontmatter, body: string): Settings {
   };
 }
 
-async function readJson<T>(fileName: string, fallback: T): Promise<T> {
-  const filePath = path.join(dataDir, fileName);
+async function readJson<T>(fileName: string, fallback: T, dir = dataDir): Promise<T> {
+  const filePath = path.join(dir, fileName);
   try {
     const raw = await fs.readFile(filePath, 'utf-8');
     return JSON.parse(raw) as T;
@@ -301,24 +302,25 @@ async function readJson<T>(fileName: string, fallback: T): Promise<T> {
   }
 }
 
-async function writeJson<T>(fileName: string, value: T) {
-  await fs.mkdir(dataDir, { recursive: true });
-  const filePath = path.join(dataDir, fileName);
-  const tmpPath = path.join(dataDir, `${fileName}.${process.pid}.${Date.now()}.tmp`);
+async function writeJson<T>(fileName: string, value: T, dir = dataDir) {
+  await fs.mkdir(dir, { recursive: true });
+  const filePath = path.join(dir, fileName);
+  const tmpPath = path.join(dir, `${fileName}.${process.pid}.${Date.now()}.tmp`);
   const body = `${JSON.stringify(value, null, 2)}\n`;
 
-  await backupJson(filePath, fileName);
+  await backupJson(filePath, fileName, dir);
   await fs.writeFile(tmpPath, body, 'utf-8');
   await fs.rename(tmpPath, filePath);
 }
 
-async function backupJson(filePath: string, fileName: string) {
+async function backupJson(filePath: string, fileName: string, dir: string) {
   try {
     await fs.access(filePath);
   } catch {
     return;
   }
 
+  const backupDir = path.join(dir, '.backups');
   await fs.mkdir(backupDir, { recursive: true });
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
   await fs.copyFile(filePath, path.join(backupDir, `${fileName}.${stamp}.bak`));
@@ -337,7 +339,7 @@ export async function getContentVersion() {
   return readJson<{ version: number; updatedAt: string }>('content-version.json', {
     version: 0,
     updatedAt: new Date(0).toISOString()
-  });
+  }, contentStateDir);
 }
 
 export async function touchContentVersion() {
@@ -345,7 +347,7 @@ export async function touchContentVersion() {
     version: Date.now(),
     updatedAt: new Date().toISOString()
   };
-  await writeJson('content-version.json', next);
+  await writeJson('content-version.json', next, contentStateDir);
   return next;
 }
 

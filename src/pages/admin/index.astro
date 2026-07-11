@@ -839,6 +839,31 @@ const authed = isAuthed({ cookies: Astro.cookies });
       padding: 12px;
     }
 
+    .markdown-preview .table-wrap {
+      overflow-x: auto;
+      margin: 16px 0;
+    }
+
+    .markdown-preview table {
+      width: 100%;
+      min-width: 520px;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .markdown-preview th,
+    .markdown-preview td {
+      padding: 8px 10px;
+      border: 1px solid rgba(135, 196, 237, 0.24);
+      vertical-align: top;
+    }
+
+    .markdown-preview th {
+      color: var(--text-primary);
+      background: rgba(135, 196, 237, 0.1);
+      font-weight: 700;
+    }
+
     .content-textarea.hidden {
       display: none;
     }
@@ -1937,19 +1962,67 @@ const authed = isAuthed({ cookies: Astro.cookies });
           .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>');
       }
 
+      function tableCellsPreview(row) {
+        const cells = [];
+        let value = '';
+        let escaped = false;
+        let source = String(row || '').trim();
+        if (source.startsWith('|')) source = source.slice(1);
+        if (source.endsWith('|')) source = source.slice(0, -1);
+        for (const character of source) {
+          if (escaped) {
+            value += character;
+            escaped = false;
+          } else if (character === '\\') {
+            escaped = true;
+          } else if (character === '|') {
+            cells.push(value.trim());
+            value = '';
+          } else {
+            value += character;
+          }
+        }
+        if (escaped) value += '\\';
+        cells.push(value.trim());
+        return cells;
+      }
+
+      function tableAlignmentsPreview(row) {
+        const cells = tableCellsPreview(row);
+        if (!cells.length || !cells.every((cell) => /^:?-{3,}:?$/.test(cell))) return null;
+        return cells.map((cell) => {
+          const left = cell.startsWith(':');
+          const right = cell.endsWith(':');
+          if (left && right) return 'center';
+          if (right) return 'right';
+          return 'left';
+        });
+      }
+
       function renderMarkdownPreview(markdown = '') {
         const rows = String(markdown || '').replace(/\r\n/g, '\n').split('\n');
         const html = [];
         let inList = false;
         let inCode = false;
         const codeRows = [];
+        let table = null;
         const closeList = () => {
           if (inList) {
             html.push('</ul>');
             inList = false;
           }
         };
-        rows.forEach((row) => {
+        const closeTable = () => {
+          if (!table) return;
+          const [header, ...body] = table.rows;
+          const renderRow = (cells, tag) => cells
+            .map((cell, index) => `<${tag} style="text-align:${table.alignments[index] || 'left'}">${inlineMarkdownPreview(cell)}</${tag}>`)
+            .join('');
+          html.push(`<div class="table-wrap"><table><thead><tr>${renderRow(header, 'th')}</tr></thead><tbody>${body.map((row) => `<tr>${renderRow(row, 'td')}</tr>`).join('')}</tbody></table></div>`);
+          table = null;
+        };
+        for (let index = 0; index < rows.length; index += 1) {
+          const row = rows[index];
           if (row.trim().startsWith('```')) {
             if (inCode) {
               html.push(`<pre><code>${escapeHtml(codeRows.join('\n'))}</code></pre>`);
@@ -1957,26 +2030,44 @@ const authed = isAuthed({ cookies: Astro.cookies });
               inCode = false;
             } else {
               closeList();
+              closeTable();
               inCode = true;
             }
-            return;
+            continue;
           }
           if (inCode) {
             codeRows.push(row);
-            return;
+            continue;
+          }
+          if (table) {
+            if (row.includes('|')) {
+              table.rows.push(tableCellsPreview(row));
+              continue;
+            }
+            closeTable();
+          }
+          const alignments = rows[index + 1] ? tableAlignmentsPreview(rows[index + 1]) : null;
+          if (row.includes('|') && alignments) {
+            closeList();
+            table = { alignments, rows: [tableCellsPreview(row)] };
+            index += 1;
+            continue;
           }
           if (!row.trim()) {
             closeList();
-            return;
+            continue;
           }
           if (row.startsWith('### ')) {
             closeList();
+            closeTable();
             html.push(`<h3>${inlineMarkdownPreview(row.slice(4))}</h3>`);
           } else if (row.startsWith('## ')) {
             closeList();
+            closeTable();
             html.push(`<h2>${inlineMarkdownPreview(row.slice(3))}</h2>`);
           } else if (row.startsWith('# ')) {
             closeList();
+            closeTable();
             html.push(`<h1>${inlineMarkdownPreview(row.slice(2))}</h1>`);
           } else if (row.startsWith('- ')) {
             if (!inList) {
@@ -1986,11 +2077,13 @@ const authed = isAuthed({ cookies: Astro.cookies });
             html.push(`<li>${inlineMarkdownPreview(row.slice(2))}</li>`);
           } else {
             closeList();
+            closeTable();
             html.push(`<p>${inlineMarkdownPreview(row)}</p>`);
           }
-        });
+        }
         if (inCode) html.push(`<pre><code>${escapeHtml(codeRows.join('\n'))}</code></pre>`);
         closeList();
+        closeTable();
         return html.join('\n');
       }
 

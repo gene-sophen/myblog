@@ -745,6 +745,31 @@ textarea {
   font-size: 16px;
 }
 
+.article-prose .table-wrap {
+  overflow-x: auto;
+  margin: 20px 0;
+}
+
+.article-prose table {
+  width: 100%;
+  min-width: 520px;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.article-prose th,
+.article-prose td {
+  padding: 10px 12px;
+  border: 1px solid rgba(135, 196, 237, 0.24);
+  vertical-align: top;
+}
+
+.article-prose th {
+  color: var(--text-primary);
+  background: rgba(135, 196, 237, 0.1);
+  font-weight: 700;
+}
+
 .article-prose pre {
   overflow: auto;
   padding: 18px;

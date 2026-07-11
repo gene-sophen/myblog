@@ -181,3 +181,7 @@ server {
     }
 }
 ```
+
+## Persistent content deployment
+
+For a cloud server that keeps its own articles and settings, configure `CONTENT_DIR` to a directory outside the Git checkout and keep uploaded images in a persistent directory linked to `public/images/articles`. The complete migration and deployment commands are in [`docs/persistent-content-deployment.md`](docs/persistent-content-deployment.md).

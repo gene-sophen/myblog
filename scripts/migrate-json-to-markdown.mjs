@@ -2,8 +2,8 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
 const root = process.cwd();
-const dataDir = path.join(root, 'data');
-const contentDir = path.join(root, 'content');
+const dataDir = path.resolve(process.env.DATA_DIR?.trim() || path.join(root, 'data'));
+const contentDir = path.resolve(process.env.CONTENT_DIR?.trim() || path.join(root, 'content'));
 
 function quoteYaml(value) {
   return JSON.stringify(String(value ?? ''));
@@ -106,4 +106,4 @@ for (const article of articles) {
   }, article.content ?? '');
 }
 
-console.log(`Migrated ${articles.length} articles, ${projects.length} projects, and site settings to content/.`);
+console.log(`Migrated ${articles.length} articles, ${projects.length} projects, and site settings to ${contentDir}.`);

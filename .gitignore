@@ -2,7 +2,10 @@ node_modules/
 dist/
 .astro/
 .env
-content/.backups/
+content/
+public/images/articles/
+data/content-version.json
+data/.backups/
 npm-debug.log*
 .agents/
 屏幕截图*.png
