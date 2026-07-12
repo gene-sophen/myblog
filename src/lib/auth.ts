@@ -167,8 +167,20 @@ export async function requireAuth(context: APIContext) {
 
 export function requireSameOrigin(context: Pick<APIContext, 'request'>) {
   const origin = context.request.headers.get('origin');
-  const expectedOrigin = new URL(context.request.url).origin;
-  if (origin && origin === expectedOrigin) return null;
+  const requestUrl = new URL(context.request.url);
+  const expectedOrigins = new Set([requestUrl.origin]);
+  const forwardedProtocol = context.request.headers.get('x-forwarded-proto')?.split(',')[0]?.trim().toLowerCase();
+  const forwardedHost = context.request.headers.get('x-forwarded-host')?.split(',')[0]?.trim() || requestUrl.host;
+
+  if ((forwardedProtocol === 'http' || forwardedProtocol === 'https') && forwardedHost) {
+    try {
+      expectedOrigins.add(new URL(`${forwardedProtocol}://${forwardedHost}`).origin);
+    } catch {
+      // An invalid proxy header is ignored and cannot widen the accepted origins.
+    }
+  }
+
+  if (origin && expectedOrigins.has(origin)) return null;
 
   return new Response(JSON.stringify({ error: 'Invalid request origin' }), {
     status: 403,
