@@ -1,7 +1,7 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import type { APIRoute } from 'astro';
-import { requireAuth } from '../../../lib/auth';
+import { requireAuth, requireSameOrigin } from '../../../lib/auth';
 
 const allowedTypes = new Map([
   ['image/jpeg', '.jpg'],
@@ -42,7 +42,10 @@ function hasValidImageSignature(type: string, buffer: Buffer) {
 }
 
 export const POST: APIRoute = async (context) => {
-  const rejected = requireAuth(context);
+  const originRejected = requireSameOrigin(context);
+  if (originRejected) return originRejected;
+
+  const rejected = await requireAuth(context);
   if (rejected) return rejected;
 
   const formData = await context.request.formData().catch(() => undefined);

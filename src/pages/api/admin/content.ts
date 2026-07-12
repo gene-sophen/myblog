@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { requireAuth } from '../../../lib/auth';
+import { requireAuth, requireSameOrigin } from '../../../lib/auth';
 import { getArticles, getContentVersion, getProjects, getSettings, saveArticles, saveProjects, saveSettings, touchContentVersion } from '../../../lib/content';
 import { validateContentPayload } from '../../../lib/validation';
 
@@ -14,8 +14,12 @@ function json(value: unknown, status = 200) {
 }
 
 export const GET: APIRoute = async (context) => {
-  const rejected = requireAuth(context);
+  const rejected = await requireAuth(context);
   if (rejected) return rejected;
+
+  if (context.request.headers.get('x-admin-session-heartbeat') === '1') {
+    return json({ ok: true });
+  }
 
   return json({
     settings: await getSettings(),
@@ -26,7 +30,10 @@ export const GET: APIRoute = async (context) => {
 };
 
 export const POST: APIRoute = async (context) => {
-  const rejected = requireAuth(context);
+  const originRejected = requireSameOrigin(context);
+  if (originRejected) return originRejected;
+
+  const rejected = await requireAuth(context);
   if (rejected) return rejected;
 
   const body = await context.request.json().catch(() => ({}));

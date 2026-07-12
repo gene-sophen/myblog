@@ -1,9 +1,23 @@
 import type { APIContext } from 'astro';
-import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
 
 const cookieName = 'codepulse_admin';
-const sessionMaxAge = 60 * 60 * 24 * 7;
+const sessionMaxAge = 60 * 60 * 12;
+const idleSessionAge = 60 * 30;
 const defaultPassword = 'admin123';
+const root = process.cwd();
+const contentDir = path.resolve(process.env.CONTENT_DIR?.trim() || path.join(root, 'content'));
+const sessionFile = path.join(contentDir, '.system', 'admin-session.json');
+
+type AuthContext = Pick<APIContext, 'cookies' | 'request'>;
+type Session = {
+  issuedAt: number;
+  lastActiveAt: number;
+  id: string;
+  userAgentHash: string;
+};
 
 function isProduction() {
   return import.meta.env.PROD || process.env.NODE_ENV === 'production';
@@ -35,59 +49,154 @@ function safeEqual(a = '', b = '') {
   return left.length === right.length && timingSafeEqual(left, right);
 }
 
+function userAgentHash(context: AuthContext) {
+  return createHash('sha256').update(context.request.headers.get('user-agent') || 'unknown').digest('hex');
+}
+
+function serializeSession(session: Session) {
+  const payload = [
+    session.issuedAt.toString(36),
+    session.lastActiveAt.toString(36),
+    session.id,
+    session.userAgentHash
+  ].join('.');
+  return `${payload}.${signSession(payload)}`;
+}
+
+function parseSession(token = ''): Session | undefined {
+  const [issuedAt, lastActiveAt, id, userAgentHash, signature, ...extra] = token.split('.');
+  if (!issuedAt || !lastActiveAt || !id || !userAgentHash || !signature || extra.length > 0) return undefined;
+
+  const session = {
+    issuedAt: Number.parseInt(issuedAt, 36),
+    lastActiveAt: Number.parseInt(lastActiveAt, 36),
+    id,
+    userAgentHash
+  };
+  if (!Number.isFinite(session.issuedAt) || !Number.isFinite(session.lastActiveAt)) return undefined;
+  if (!safeEqual(signature, signSession([issuedAt, lastActiveAt, id, userAgentHash].join('.')))) return undefined;
+  return session;
+}
+
+async function activeSessionId() {
+  try {
+    const value = JSON.parse(await fs.readFile(sessionFile, 'utf-8')) as { id?: unknown };
+    return typeof value.id === 'string' ? value.id : undefined;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
+    throw error;
+  }
+}
+
+async function setActiveSession(id: string) {
+  await fs.mkdir(path.dirname(sessionFile), { recursive: true, mode: 0o700 });
+  const tempFile = `${sessionFile}.${process.pid}.${Date.now()}.tmp`;
+  await fs.writeFile(tempFile, `${JSON.stringify({ id, updatedAt: new Date().toISOString() })}\n`, {
+    encoding: 'utf-8',
+    mode: 0o600
+  });
+  await fs.rename(tempFile, sessionFile);
+}
+
+async function clearActiveSession(id?: string) {
+  try {
+    if (!id || (await activeSessionId()) === id) await fs.unlink(sessionFile);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+  }
+}
+
+function setCookie(context: AuthContext, session: Session) {
+  context.cookies.set(cookieName, serializeSession(session), {
+    path: '/',
+    httpOnly: true,
+    sameSite: 'strict',
+    secure: isProduction(),
+    maxAge: sessionMaxAge
+  });
+}
+
+function unauthorized(context: AuthContext, reason: 'expired' | 'invalid' = 'invalid') {
+  clearAuthCookie(context);
+  return new Response(JSON.stringify({ error: 'Login required', code: `session_${reason}` }), {
+    status: 401,
+    headers: {
+      'content-type': 'application/json; charset=utf-8',
+      'cache-control': 'no-store'
+    }
+  });
+}
+
 export function verifyAdminPassword(password = '') {
   return safeEqual(password, getAdminPassword());
 }
 
-function getSessionToken() {
-  const issuedAt = Date.now().toString(36);
-  const nonce = randomBytes(16).toString('hex');
-  const payload = `${issuedAt}.${nonce}`;
-  return `${payload}.${signSession(payload)}`;
-}
-
-function verifySessionToken(token = '') {
-  const [issuedAt, nonce, signature, ...extra] = token.split('.');
-  if (!issuedAt || !nonce || !signature || extra.length > 0) return false;
-
-  const issuedAtMs = Number.parseInt(issuedAt, 36);
-  if (!Number.isFinite(issuedAtMs)) return false;
-  if (Date.now() - issuedAtMs > sessionMaxAge * 1000) return false;
-
-  return safeEqual(signature, signSession(`${issuedAt}.${nonce}`));
-}
-
-export function isAuthed(context: Pick<APIContext, 'cookies'>) {
+export async function isAuthed(context: AuthContext) {
   try {
-    return verifySessionToken(context.cookies.get(cookieName)?.value);
+    const session = parseSession(context.cookies.get(cookieName)?.value);
+    if (!session || !safeEqual(session.userAgentHash, userAgentHash(context))) return false;
+
+    const now = Date.now();
+    if (session.issuedAt > now + 5 * 60 * 1000 || session.lastActiveAt > now + 5 * 60 * 1000) return false;
+    if (now - session.issuedAt > sessionMaxAge * 1000 || now - session.lastActiveAt > idleSessionAge * 1000) return false;
+    return safeEqual(session.id, await activeSessionId());
   } catch {
     return false;
   }
 }
 
-export function requireAuth(context: APIContext) {
-  if (!isAuthed(context)) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: {
-        'content-type': 'application/json; charset=utf-8',
-        'cache-control': 'no-store'
-      }
-    });
+export async function requireAuth(context: APIContext) {
+  try {
+    const token = context.cookies.get(cookieName)?.value;
+    const session = parseSession(token);
+    if (!session || !safeEqual(session.userAgentHash, userAgentHash(context))) return unauthorized(context, 'invalid');
+
+    const now = Date.now();
+    if (session.issuedAt > now + 5 * 60 * 1000 || session.lastActiveAt > now + 5 * 60 * 1000) return unauthorized(context, 'invalid');
+    if (now - session.issuedAt > sessionMaxAge * 1000 || now - session.lastActiveAt > idleSessionAge * 1000) {
+      return unauthorized(context, 'expired');
+    }
+    if (!safeEqual(session.id, await activeSessionId())) return unauthorized(context, 'invalid');
+
+    setCookie(context, { ...session, lastActiveAt: now });
+    return null;
+  } catch {
+    return unauthorized(context, 'invalid');
   }
-  return null;
 }
 
-export function setAuthCookie(context: APIContext) {
-  context.cookies.set(cookieName, getSessionToken(), {
-    path: '/',
-    httpOnly: true,
-    sameSite: 'strict',
-    secure: import.meta.env.PROD,
-    maxAge: sessionMaxAge
+export function requireSameOrigin(context: Pick<APIContext, 'request'>) {
+  const origin = context.request.headers.get('origin');
+  const expectedOrigin = new URL(context.request.url).origin;
+  if (origin && origin === expectedOrigin) return null;
+
+  return new Response(JSON.stringify({ error: 'Invalid request origin' }), {
+    status: 403,
+    headers: {
+      'content-type': 'application/json; charset=utf-8',
+      'cache-control': 'no-store'
+    }
   });
 }
 
-export function clearAuthCookie(context: APIContext) {
+export async function setAuthCookie(context: APIContext) {
+  const now = Date.now();
+  const session = {
+    issuedAt: now,
+    lastActiveAt: now,
+    id: randomBytes(32).toString('hex'),
+    userAgentHash: userAgentHash(context)
+  };
+  await setActiveSession(session.id);
+  setCookie(context, session);
+}
+
+export async function revokeAuthSession(context: APIContext) {
+  const session = parseSession(context.cookies.get(cookieName)?.value);
+  await clearActiveSession(session?.id);
+  clearAuthCookie(context);
+}
+
+export function clearAuthCookie(context: Pick<APIContext, 'cookies'>) {
   context.cookies.delete(cookieName, { path: '/' });
 }

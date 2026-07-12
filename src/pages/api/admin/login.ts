@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { setAuthCookie, verifyAdminPassword } from '../../../lib/auth';
+import { requireSameOrigin, setAuthCookie, verifyAdminPassword } from '../../../lib/auth';
 
 const loginAttempts = new Map<string, { count: number; resetAt: number }>();
 const loginWindowMs = 10 * 60 * 1000;
@@ -40,6 +40,9 @@ function recordFailedAttempt(key: string) {
 }
 
 export const POST: APIRoute = async (context) => {
+  const originRejected = requireSameOrigin(context);
+  if (originRejected) return originRejected;
+
   const body = await context.request.json().catch(() => ({}));
   const key = clientKey(context);
 
@@ -57,6 +60,10 @@ export const POST: APIRoute = async (context) => {
   }
 
   loginAttempts.delete(key);
-  setAuthCookie(context);
+  try {
+    await setAuthCookie(context);
+  } catch {
+    return json({ error: 'Unable to create admin session' }, 500);
+  }
   return json({ ok: true });
 };

@@ -4,7 +4,7 @@ import { isAuthed } from '../../lib/auth';
 import { getSettings } from '../../lib/content';
 
 const settings = await getSettings();
-const authed = isAuthed({ cookies: Astro.cookies });
+const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request });
 ---
 <BaseLayout settings={settings} title={settings.adminTitle}>
   <section class="admin-container">
@@ -1592,6 +1592,9 @@ const authed = isAuthed({ cookies: Astro.cookies });
       let articleIndex = 0;
       let isDirty = false;
       let articleImportDraft = null;
+      let lastSessionActivity = Date.now();
+      let lastSessionHeartbeat = Date.now();
+      let handlingSessionExpiry = false;
 
       const qs = (selector) => document.querySelector(selector);
       const qsa = (selector) => Array.from(document.querySelectorAll(selector));
@@ -1616,6 +1619,45 @@ const authed = isAuthed({ cookies: Astro.cookies });
         interview: '## 提问内容\\n\\n- 问题一\\n- 问题二\\n\\n## 回答思路\\n\\n先说结论，再补原理，最后给工程实践。\\n\\n## 事后反思\\n\\n哪些地方答得好，哪些地方需要补。\\n',
         essay: '## 记录\\n\\n这个月最值得记录的一件事。\\n\\n## 变化\\n\\n我做出了什么调整？\\n\\n## 复盘\\n\\n下个月要继续坚持或修正什么。\\n'
       };
+      const saveRecoveryDraft = () => {
+        if (!isDirty) return;
+        try {
+          sessionStorage.setItem('codepulse-admin-recovery', JSON.stringify({
+            settings: state.settings,
+            projects: state.projects,
+            articles: state.articles
+          }));
+        } catch {}
+      };
+      const handleSessionExpiry = () => {
+        if (handlingSessionExpiry) return;
+        handlingSessionExpiry = true;
+        saveRecoveryDraft();
+        alert(isDirty
+          ? '登录已过期，未保存的内容已暂存。请重新登录后继续编辑。'
+          : '登录已过期，请重新登录。');
+        location.reload();
+      };
+      const heartbeatSession = async () => {
+        if (handlingSessionExpiry || document.visibilityState !== 'visible') return;
+        lastSessionHeartbeat = Date.now();
+        try {
+          const response = await fetch('/api/admin/content', { headers: { 'x-admin-session-heartbeat': '1' } });
+          if (response.status === 401) handleSessionExpiry();
+        } catch {}
+      };
+      const recordSessionActivity = () => {
+        lastSessionActivity = Date.now();
+        if (lastSessionActivity - lastSessionHeartbeat > 8 * 60 * 1000) heartbeatSession();
+      };
+      ['pointerdown', 'keydown', 'input', 'change', 'focus'].forEach((eventName) => {
+        window.addEventListener(eventName, recordSessionActivity, { passive: true });
+      });
+      window.setInterval(() => {
+        if (Date.now() - lastSessionActivity < 10 * 60 * 1000 && Date.now() - lastSessionHeartbeat > 8 * 60 * 1000) {
+          heartbeatSession();
+        }
+      }, 60 * 1000);
       const escapeHtml = (value) => String(value ?? '')
         .replaceAll('&', '&amp;')
         .replaceAll('<', '&lt;')
@@ -2634,6 +2676,7 @@ const authed = isAuthed({ cookies: Astro.cookies });
           const response = await fetch('/api/admin/upload-image', { method: 'POST', body: formData });
           const result = await response.json().catch(() => ({}));
           if (!response.ok) {
+            if (response.status === 401) handleSessionExpiry();
             qs('#saveMessage').textContent = result.error || '图片上传失败。';
             return;
           }
@@ -2810,6 +2853,7 @@ const authed = isAuthed({ cookies: Astro.cookies });
               localStorage.setItem('codepulse-content-saved', String(result.version?.version || Date.now()));
             } catch {}
           } else {
+            if (response.status === 401) handleSessionExpiry();
             const details = Array.isArray(result.details) ? `：${result.details.slice(0, 3).join('；')}` : '';
             qs('#saveMessage').textContent = `${result.error || '保存失败，请重试'}${details}`;
           }
@@ -2827,16 +2871,35 @@ const authed = isAuthed({ cookies: Astro.cookies });
       });
 
       fetch('/api/admin/content')
-        .then((response) => response.json())
+        .then(async (response) => {
+          if (response.status === 401) {
+            handleSessionExpiry();
+            throw new Error('Session expired');
+          }
+          if (!response.ok) throw new Error('Unable to load admin content');
+          return response.json();
+        })
         .then((data) => {
           state = data;
-        savedSnapshot = JSON.parse(JSON.stringify(data));
-        renderSettings();
-        renderProjects();
-        renderArticles();
-        syncPreviewFrames(data.version?.version || Date.now());
-        scalePreviewFrames();
-      });
+          savedSnapshot = JSON.parse(JSON.stringify(data));
+          try {
+            const recovery = sessionStorage.getItem('codepulse-admin-recovery');
+            if (recovery) {
+              sessionStorage.removeItem('codepulse-admin-recovery');
+              const recoveredState = JSON.parse(recovery);
+              if (confirm('检测到登录过期前未保存的内容，是否恢复继续编辑？')) {
+                state = recoveredState;
+                setDirty(true);
+              }
+            }
+          } catch {}
+          renderSettings();
+          renderProjects();
+          renderArticles();
+          syncPreviewFrames(data.version?.version || Date.now());
+          scalePreviewFrames();
+        })
+        .catch(() => undefined);
     }
   </script>
 </BaseLayout>

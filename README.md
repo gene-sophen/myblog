@@ -185,3 +185,7 @@ server {
 ## Persistent content deployment
 
 For a cloud server that keeps its own articles and settings, configure `CONTENT_DIR` to a directory outside the Git checkout and keep uploaded images in a persistent directory linked to `public/images/articles`. The complete migration and deployment commands are in [`docs/persistent-content-deployment.md`](docs/persistent-content-deployment.md).
+
+## Admin session security
+
+Admin sessions are bound to the browser user agent, expire after 30 minutes without activity, and have a 12-hour absolute lifetime. Only one session is active at a time: a new login invalidates the previous session. Content writes, image uploads, login, and logout also require a same-origin request. The editor saves unsaved changes in the browser before redirecting to re-authentication and offers to restore them after login.
