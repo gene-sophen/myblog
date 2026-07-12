@@ -121,7 +121,11 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
           </div>
           <div class="admin-workbench">
             <div class="editor-surface record-editor">
-              <div id="articleList" class="record-list"></div>
+              <div class="article-browser">
+                <div id="articleListTools" class="article-list-tools"></div>
+                <div id="articleList" class="record-list"></div>
+                <div id="articlePagination" class="article-pagination"></div>
+              </div>
               <form id="articleForm" class="admin-form article-form"></form>
               <section id="articleImportPanel" class="import-panel hidden"></section>
               <section id="contentAuditPanel" class="import-panel hidden"></section>
@@ -366,6 +370,87 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
     .record-item.active strong,
     .record-item.active span {
       color: white;
+    }
+
+    .article-browser {
+      position: sticky;
+      top: 108px;
+      min-width: 0;
+      padding: 2px 8px 4px 2px;
+      border-right: 1px solid rgba(135, 196, 237, 0.12);
+    }
+
+    .article-list-tools {
+      display: grid;
+      gap: 8px;
+      padding-bottom: 10px;
+    }
+
+    .article-list-tools input,
+    .article-list-tools select {
+      width: 100%;
+      min-height: 38px;
+      padding: 8px 10px;
+      border: 1px solid rgba(135, 196, 237, 0.22);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.8);
+      color: var(--text-primary);
+      font-size: 12px;
+    }
+
+    .article-filter-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .article-list-meta {
+      color: var(--text-tertiary);
+      font-family: var(--font-mono);
+      font-size: 11px;
+    }
+
+    .article-browser .record-list {
+      position: static;
+      max-height: min(52vh, 540px);
+      padding: 0 2px 0 0;
+      border: 0;
+    }
+
+    .article-empty {
+      padding: 18px 10px;
+      color: var(--text-tertiary);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .article-pagination {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding-top: 10px;
+      color: var(--text-tertiary);
+      font-family: var(--font-mono);
+      font-size: 11px;
+    }
+
+    .article-pagination button {
+      display: grid;
+      width: 30px;
+      height: 30px;
+      place-items: center;
+      padding: 0;
+      border: 1px solid rgba(135, 196, 237, 0.22);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.76);
+      color: var(--text-primary);
+      cursor: pointer;
+    }
+
+    .article-pagination button:disabled {
+      cursor: not-allowed;
+      opacity: 0.38;
     }
 
     .admin-form {
@@ -1531,6 +1616,17 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
         border-bottom: 1px solid rgba(135, 196, 237, 0.12);
         padding: 0 0 12px;
       }
+
+      .article-browser {
+        position: static;
+        padding: 0 0 12px;
+        border-right: 0;
+        border-bottom: 1px solid rgba(135, 196, 237, 0.12);
+      }
+
+      .article-browser .record-list {
+        max-height: 260px;
+      }
     }
 
     @media (max-width: 760px) {
@@ -1592,6 +1688,9 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
       let articleIndex = 0;
       let isDirty = false;
       let articleImportDraft = null;
+      let articlePage = 1;
+      const articlePageSize = 12;
+      const articleFilters = { query: '', status: 'all', kind: 'all', sort: 'date-desc' };
       let lastSessionActivity = Date.now();
       let lastSessionHeartbeat = Date.now();
       let handlingSessionExpiry = false;
@@ -2461,13 +2560,84 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
       }
 
       function renderArticleList() {
-        qs('#articleList').innerHTML = state.articles.map((article, index) => (
-          `<button class="record-item ${index === articleIndex ? 'active' : ''}" type="button" data-article="${index}"><strong>${escapeHtml(article.title)}</strong><br><span>${escapeHtml(article.status || 'draft')} · ${escapeHtml(article.kind)} · ${escapeHtml(article.date)}</span></button>`
-        )).join('');
+        const query = articleFilters.query.trim().toLowerCase();
+        const entries = state.articles
+          .map((article, index) => ({ article, index }))
+          .filter(({ article }) => {
+            const searchable = [article.title, article.slug, article.category, article.tags?.join(' ')].join(' ').toLowerCase();
+            return (!query || searchable.includes(query))
+              && (articleFilters.status === 'all' || article.status === articleFilters.status)
+              && (articleFilters.kind === 'all' || article.kind === articleFilters.kind);
+          })
+          .sort((left, right) => {
+            if (articleFilters.sort === 'title-asc') return String(left.article.title || '').localeCompare(String(right.article.title || ''), 'zh-CN');
+            const leftDate = Date.parse(`${left.article.date || ''}T00:00:00`) || 0;
+            const rightDate = Date.parse(`${right.article.date || ''}T00:00:00`) || 0;
+            return articleFilters.sort === 'date-asc' ? leftDate - rightDate : rightDate - leftDate;
+          });
+        const totalPages = Math.max(1, Math.ceil(entries.length / articlePageSize));
+        articlePage = Math.min(articlePage, totalPages);
+        const visibleEntries = entries.slice((articlePage - 1) * articlePageSize, articlePage * articlePageSize);
+        const statusLabel = { published: '发布', draft: '草稿' };
+
+        qs('#articleListTools').innerHTML = `
+          <input id="articleSearch" type="search" value="${escapeHtml(articleFilters.query)}" placeholder="搜索标题、标签或 Slug" />
+          <div class="article-filter-grid">
+            <select id="articleStatusFilter" aria-label="发布状态筛选">
+              <option value="all">全部状态</option>
+              <option value="published" ${articleFilters.status === 'published' ? 'selected' : ''}>已发布</option>
+              <option value="draft" ${articleFilters.status === 'draft' ? 'selected' : ''}>草稿</option>
+            </select>
+            <select id="articleKindFilter" aria-label="文章类型筛选">
+              <option value="all">全部类型</option>
+              ${articleKinds.map((kind) => `<option value="${escapeHtml(kind)}" ${articleFilters.kind === kind ? 'selected' : ''}>${escapeHtml(articleKindDefaults[kind])}</option>`).join('')}
+            </select>
+          </div>
+          <select id="articleSort" aria-label="文章排序方式">
+            <option value="date-desc" ${articleFilters.sort === 'date-desc' ? 'selected' : ''}>发布时间：最新优先</option>
+            <option value="date-asc" ${articleFilters.sort === 'date-asc' ? 'selected' : ''}>发布时间：最早优先</option>
+            <option value="title-asc" ${articleFilters.sort === 'title-asc' ? 'selected' : ''}>标题：A 到 Z</option>
+          </select>
+          <span class="article-list-meta">显示 ${entries.length} / ${state.articles.length} 篇</span>
+        `;
+        qs('#articleList').innerHTML = visibleEntries.length
+          ? visibleEntries.map(({ article, index }) => (
+              `<button class="record-item ${index === articleIndex ? 'active' : ''}" type="button" data-article="${index}"><strong>${escapeHtml(article.title)}</strong><br><span>${escapeHtml(statusLabel[article.status] || '草稿')} · ${escapeHtml(articleKindDefaults[article.kind] || article.kind)} · ${escapeHtml(article.date)}</span></button>`
+            )).join('')
+          : '<p class="article-empty">没有匹配的文章。</p>';
+        qs('#articlePagination').innerHTML = `
+          <button type="button" data-article-page="previous" aria-label="上一页" title="上一页" ${articlePage === 1 ? 'disabled' : ''}>&lt;</button>
+          <span>${entries.length ? `${articlePage} / ${totalPages}` : '0 / 0'}</span>
+          <button type="button" data-article-page="next" aria-label="下一页" title="下一页" ${articlePage >= totalPages || !entries.length ? 'disabled' : ''}>&gt;</button>
+        `;
         qsa('[data-article]').forEach((button) => button.addEventListener('click', () => {
           readArticleForm();
           articleIndex = Number(button.dataset.article);
           renderArticles();
+        }));
+        qs('#articleSearch').addEventListener('input', (event) => {
+          articleFilters.query = event.target.value;
+          articlePage = 1;
+          renderArticleList();
+        });
+        qs('#articleStatusFilter').addEventListener('change', (event) => {
+          articleFilters.status = event.target.value;
+          articlePage = 1;
+          renderArticleList();
+        });
+        qs('#articleKindFilter').addEventListener('change', (event) => {
+          articleFilters.kind = event.target.value;
+          articlePage = 1;
+          renderArticleList();
+        });
+        qs('#articleSort').addEventListener('change', (event) => {
+          articleFilters.sort = event.target.value;
+          articlePage = 1;
+          renderArticleList();
+        });
+        qsa('[data-article-page]').forEach((button) => button.addEventListener('click', () => {
+          articlePage += button.dataset.articlePage === 'next' ? 1 : -1;
+          renderArticleList();
         }));
       }
 
