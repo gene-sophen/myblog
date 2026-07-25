@@ -649,6 +649,8 @@ textarea {
 }
 
 .progress-track {
+  display: block;
+  position: relative;
   height: 8px;
   overflow: hidden;
   border-radius: 999px;
@@ -656,9 +658,12 @@ textarea {
 }
 
 .progress-fill {
+  display: block;
   height: 100%;
   border-radius: inherit;
   background: linear-gradient(90deg, var(--sky-blue), var(--bright-cyan), var(--turquoise));
+  box-shadow: 0 0 10px rgba(68, 232, 226, 0.34);
+  transition: width 240ms ease;
 }
 
 .cta-row {
