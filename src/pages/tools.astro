@@ -5,7 +5,16 @@ import { getArticles, getSettings } from '../lib/content';
 
 const settings = await getSettings();
 const tools = (await getArticles()).filter((article) => article.kind === 'tool');
-const categories = ['环境配置', '代码片段', '运维部署'];
+const groupedTools = new Map<string, typeof tools>();
+
+for (const tool of tools) {
+  const category = String(tool.category || '').trim() || '未分类';
+  const categoryTools = groupedTools.get(category) || [];
+  categoryTools.push(tool);
+  groupedTools.set(category, categoryTools);
+}
+
+const toolGroups = Array.from(groupedTools, ([category, articles]) => ({ category, articles }));
 ---
 <BaseLayout settings={settings} title="工具箱" description="沉淀可直接复用的环境配置、代码片段和部署经验。">
   <section class="container">
@@ -15,15 +24,15 @@ const categories = ['环境配置', '代码片段', '运维部署'];
       <p class="page-intro">这里沉淀可直接复用的配置、代码片段和部署经验。内容不绑定具体项目，强调速查和可迁移。</p>
     </div>
     <div class="grid grid-3">
-      {categories.map((category) => (
+      {toolGroups.map(({ category, articles }) => (
         <section class="glass-card card">
           <h2 class="card-title">{category}</h2>
           <div class="article-list" style="margin-top: 18px;">
-            {tools.filter((tool) => tool.category === category).map((tool) => <ArticleRow article={tool} />)}
-            {tools.filter((tool) => tool.category === category).length === 0 && <p class="muted">暂无内容</p>}
+            {articles.map((tool) => <ArticleRow article={tool} />)}
           </div>
         </section>
       ))}
+      {toolGroups.length === 0 && <p class="muted">暂无工具内容</p>}
     </div>
   </section>
 </BaseLayout>

@@ -2403,13 +2403,21 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
         const hint = options.hint ? `<small>${escapeHtml(options.hint)}</small>` : '';
         const rows = options.rows ? ` rows="${escapeHtml(options.rows)}"` : '';
         const type = options.inputType || 'text';
+        const suggestions = Array.isArray(options.suggestions)
+          ? [...new Set(options.suggestions.map((item) => String(item).trim()).filter(Boolean))]
+          : [];
+        const listId = suggestions.length ? `${name}-suggestions` : '';
+        const list = listId ? ` list="${escapeHtml(listId)}"` : '';
+        const dataList = listId
+          ? `<datalist id="${escapeHtml(listId)}">${suggestions.map((item) => `<option value="${escapeHtml(item)}"></option>`).join('')}</datalist>`
+          : '';
         if (options.type === 'textarea') {
           return `<label class="field-card${full}${tone}${size}" data-field="${escapeHtml(name)}"><span class="field-top"><span>${escapeHtml(label)}</span>${hint}</span><textarea name="${escapeHtml(name)}"${inputClass}${placeholder}${rows}>${escapeHtml(value)}</textarea></label>`;
         }
         if (options.type === 'select') {
           return `<label class="field-card${full}${tone}${size}" data-field="${escapeHtml(name)}"><span class="field-top"><span>${escapeHtml(label)}</span>${hint}</span><select name="${escapeHtml(name)}">${options.choices.map((choice) => `<option value="${escapeHtml(choice.value)}" ${choice.value === value ? 'selected' : ''}>${escapeHtml(choice.label)}</option>`).join('')}</select></label>`;
         }
-        return `<label class="field-card${full}${tone}${size}" data-field="${escapeHtml(name)}"><span class="field-top"><span>${escapeHtml(label)}</span>${hint}</span><input type="${escapeHtml(type)}" name="${escapeHtml(name)}" value="${escapeHtml(value)}"${placeholder} /></label>`;
+        return `<label class="field-card${full}${tone}${size}" data-field="${escapeHtml(name)}"><span class="field-top"><span>${escapeHtml(label)}</span>${hint}</span><input type="${escapeHtml(type)}" name="${escapeHtml(name)}" value="${escapeHtml(value)}"${placeholder}${list} />${dataList}</label>`;
       }
 
       function editorBlock(kicker, title, body, accent = '') {
@@ -2644,6 +2652,11 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
       function renderArticleForm() {
         const a = state.articles[articleIndex] || {};
         const sourcePath = a.slug ? `content/articles/${a.slug}.md` : '保存后生成 Markdown 文件';
+        const toolCategorySuggestions = [...new Set(state.articles
+          .filter((article) => article.kind === 'tool')
+          .map((article) => String(article.category || '').trim())
+          .filter(Boolean))]
+          .sort((left, right) => left.localeCompare(right, 'zh-CN'));
         qs('#articleForm').innerHTML = `
           <div class="source-path-card">
             <span>源文件：${escapeHtml(sourcePath)}</span>
@@ -2667,7 +2680,11 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
               { value: 'resume', label: '简历经验' },
               { value: 'essay', label: '随笔' }
             ] })}
-            ${field('category', '分类', a.category)}
+            ${field('category', '分类', a.category, {
+              placeholder: '输入新分类或选择已有分类',
+              hint: a.kind === 'tool' ? '工具箱分类可自由输入' : '',
+              suggestions: toolCategorySuggestions
+            })}
             ${field('projectSlug', '所属项目 Slug', a.projectSlug, { tone: 'mono-field' })}
             ${field('lifecycle', '生命周期', a.lifecycle, { type: 'select', choices: [{ value: '', label: '无' }, { value: 'ongoing', label: '进行中' }, { value: 'archived', label: '已归档' }] })}
             ${field('tags', '标签', (a.tags || []).join(', '), { full: true, tone: 'tag-field', hint: '用逗号分隔' })}
