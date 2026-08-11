@@ -2,7 +2,7 @@
 
 ## Goal
 
-Make article creation and Markdown import safe for long editing sessions, easy to locate after batch operations, and immediately previewable without saving content to the server.
+Make article creation and Markdown import safe for long editing sessions, easy to locate after batch operations, and compact enough for frequent editing.
 
 ## Editing State
 
@@ -22,9 +22,9 @@ The file input accepts one or more Markdown files. Each file is read, parsed, an
 
 Content is written to Markdown files only after the existing "Save all" action and change-summary confirmation.
 
-## Live Preview
+## Editor Layout
 
-The saved-page iframe is replaced by a local preview rendered from the current form values. Title, status, category, date, excerpt, and Markdown body update on input without a network request or content save. The separate "Open" link remains available for checking the last saved public page.
+The article editor uses the full workspace width with a persistent article browser on the left. On wide screens, the title and classification sections share one row, while the excerpt and Markdown body use a narrower/wider split inside the writing section. Breakpoints return these areas to a single column when horizontal space is limited. The saved-page preview is intentionally omitted; an "Open article page" link remains in the top action bar for checking published output.
 
 ## Error Handling
 
@@ -36,4 +36,4 @@ Import failures identify the source filename and all validation messages. Read f
 - Edit an existing article, create another article, then reopen the first and confirm its unsaved fields remain intact.
 - Import multiple valid files plus one invalid file and confirm partial success with detailed errors.
 - Import a duplicate slug and confirm the existing article remains unchanged while the imported slug receives a suffix.
-- Confirm live preview updates before saving and that desktop/mobile layouts have no horizontal overflow.
+- Confirm the compact desktop layout and single-column mobile layout have no horizontal overflow.

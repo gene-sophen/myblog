@@ -111,6 +111,7 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
             <div class="panel-actions">
               <button class="btn secondary" id="importArticle" type="button">导入 Markdown</button>
               <button class="btn secondary" id="exportArticle" type="button">导出当前</button>
+              <a class="btn secondary" id="articlePreviewLink" href="/" target="_blank" rel="noreferrer">打开文章页</a>
               <button class="btn secondary" id="uploadArticleImage" type="button">上传图片</button>
               <button class="btn secondary" id="contentAudit" type="button">内容体检</button>
               <button class="btn secondary" id="downloadArticleTemplate" type="button">下载模板</button>
@@ -119,8 +120,8 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
               <input id="articleImageFile" class="hidden-file-input" type="file" accept="image/jpeg,image/png,image/webp,image/gif" />
             </div>
           </div>
-          <div class="admin-workbench">
-            <div class="editor-surface record-editor">
+          <div class="admin-workbench article-workbench">
+            <div class="editor-surface record-editor article-record-editor">
               <section id="articleImportResult" class="import-panel article-import-result hidden" aria-live="polite"></section>
               <div class="article-browser">
                 <div id="articleListTools" class="article-list-tools"></div>
@@ -130,16 +131,6 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
               <form id="articleForm" class="admin-form article-form"></form>
               <section id="contentAuditPanel" class="import-panel hidden"></section>
             </div>
-            <aside class="preview-surface article-live-preview-surface">
-              <div class="preview-head">
-                <div>
-                  <p class="eyebrow">Live Draft</p>
-                  <h3>实时文章预览</h3>
-                </div>
-                <a class="btn secondary" id="articlePreviewLink" href="/" target="_blank" rel="noreferrer">打开</a>
-              </div>
-              <article id="articleLivePreview" class="article-live-preview"></article>
-            </aside>
           </div>
         </section>
       </div>
@@ -383,66 +374,12 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
       grid-column: 1 / -1;
     }
 
-    .article-live-preview-surface {
-      min-width: 0;
+    .article-workbench {
+      grid-template-columns: minmax(0, 1fr);
     }
 
-    .article-live-preview {
-      min-height: min(62vh, 680px);
-      max-height: min(72vh, 780px);
-      overflow: auto;
-      padding: clamp(22px, 3vw, 40px);
-      border: 1px solid rgba(135, 196, 237, 0.18);
-      border-radius: 18px;
-      background: rgba(255, 255, 255, 0.92);
-      color: var(--text-secondary);
-    }
-
-    .article-live-preview-header {
-      padding-bottom: 22px;
-      border-bottom: 1px solid rgba(135, 196, 237, 0.18);
-    }
-
-    .article-live-preview-meta {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 8px 12px;
-      margin-bottom: 14px;
-      color: var(--text-tertiary);
-      font-family: var(--font-mono);
-      font-size: 12px;
-    }
-
-    .article-live-preview h1 {
-      margin: 0;
-      color: var(--text-primary);
-      font-family: var(--font-display);
-      font-size: 36px;
-      line-height: 1.16;
-    }
-
-    .article-live-preview-excerpt {
-      margin: 14px 0 0;
-      color: var(--text-tertiary);
-      line-height: 1.7;
-    }
-
-    .article-live-preview-markdown.markdown-preview {
-      display: block;
-      min-height: 0;
-      max-height: none;
-      margin-top: 24px;
-      padding: 0;
-      overflow: visible;
-      border: 0;
-      border-radius: 0;
-      background: transparent;
-    }
-
-    .article-live-preview-empty {
-      margin: 0;
-      color: var(--text-tertiary);
+    .article-record-editor {
+      grid-template-columns: minmax(210px, 248px) minmax(0, 1fr);
     }
 
     .article-list-tools {
@@ -982,71 +919,6 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
       color: var(--text-primary);
     }
 
-    .markdown-preview {
-      display: none;
-      min-height: 360px;
-      max-height: 640px;
-      overflow: auto;
-      padding: 18px;
-      border: 1px solid rgba(135, 196, 237, 0.16);
-      border-radius: 16px;
-      background: rgba(255, 255, 255, 0.8);
-      color: var(--text-secondary);
-      line-height: 1.75;
-    }
-
-    .markdown-preview.active {
-      display: block;
-    }
-
-    .markdown-preview h1,
-    .markdown-preview h2,
-    .markdown-preview h3 {
-      color: var(--text-primary);
-      font-family: var(--font-display);
-    }
-
-    .markdown-preview code,
-    .markdown-preview pre {
-      font-family: var(--font-mono);
-      background: rgba(15, 23, 42, 0.06);
-      border-radius: 8px;
-    }
-
-    .markdown-preview pre {
-      overflow: auto;
-      padding: 12px;
-    }
-
-    .markdown-preview .table-wrap {
-      overflow-x: auto;
-      margin: 16px 0;
-    }
-
-    .markdown-preview table {
-      width: 100%;
-      min-width: 520px;
-      border-collapse: collapse;
-      font-size: 13px;
-    }
-
-    .markdown-preview th,
-    .markdown-preview td {
-      padding: 8px 10px;
-      border: 1px solid rgba(135, 196, 237, 0.24);
-      vertical-align: top;
-    }
-
-    .markdown-preview th {
-      color: var(--text-primary);
-      background: rgba(135, 196, 237, 0.1);
-      font-weight: 700;
-    }
-
-    .content-textarea.hidden {
-      display: none;
-    }
-
     @media (max-width: 1440px) {
       .admin-workbench {
         grid-template-columns: minmax(0, 1fr);
@@ -1462,6 +1334,10 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
       align-items: start;
     }
 
+    .record-editor.article-record-editor {
+      grid-template-columns: minmax(210px, 248px) minmax(0, 1fr);
+    }
+
     .record-list {
       position: sticky;
       top: 108px;
@@ -1559,8 +1435,48 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
       align-items: start;
     }
 
-    .article-writing-block .content-editor-grid {
-      grid-template-columns: 1fr;
+    #articleForm .article-heading-block {
+      grid-column: span 5;
+    }
+
+    #articleForm .article-meta-block {
+      grid-column: span 7;
+    }
+
+    #articleForm .article-writing-block {
+      grid-column: 1 / -1;
+    }
+
+    #articleForm .article-writing-block .content-editor-grid {
+      grid-template-columns: minmax(240px, 4fr) minmax(0, 8fr);
+    }
+
+    #articleForm .article-writing-block .article-tool-row {
+      grid-column: 1 / -1;
+    }
+
+    #articleForm .article-writing-block .field-card.full {
+      grid-column: auto;
+    }
+
+    #articleForm .article-writing-block [data-field="excerpt"] {
+      grid-column: 1;
+    }
+
+    #articleForm .article-writing-block [data-field="content"] {
+      grid-column: 2;
+    }
+
+    #articleForm .article-writing-block [data-field="excerpt"] textarea {
+      min-height: 220px;
+    }
+
+    #articleForm .article-writing-block .content-textarea {
+      min-height: 440px;
+    }
+
+    #articleForm .article-title-field input {
+      font-size: 28px;
     }
 
     .content-editor-block .field-card {
@@ -1698,8 +1614,16 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
       padding-top: 2px;
     }
 
+    @media (max-width: 1380px) {
+      #articleForm .article-heading-block,
+      #articleForm .article-meta-block {
+        grid-column: 1 / -1;
+      }
+    }
+
     @media (max-width: 1180px) {
-      .record-editor {
+      .record-editor,
+      .record-editor.article-record-editor {
         grid-template-columns: 1fr;
       }
 
@@ -1724,22 +1648,25 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
     }
 
     @media (max-width: 760px) {
-      .article-live-preview {
-        min-height: 360px;
-        max-height: none;
-        padding: 20px;
-      }
-
-      .article-live-preview h1 {
-        font-size: 28px;
-      }
-
       .import-grid {
         grid-template-columns: 1fr;
       }
 
       .content-editor-grid {
         grid-template-columns: 1fr;
+      }
+
+      #articleForm .article-writing-block .content-editor-grid {
+        grid-template-columns: 1fr;
+      }
+
+      #articleForm .article-writing-block [data-field="excerpt"],
+      #articleForm .article-writing-block [data-field="content"] {
+        grid-column: 1;
+      }
+
+      #articleForm .article-writing-block .content-textarea {
+        min-height: 400px;
       }
 
       .content-editor-block {
@@ -2166,138 +2093,6 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
         URL.revokeObjectURL(url);
       }
 
-      function inlineMarkdownPreview(value) {
-        return escapeHtml(value)
-          .replace(/`([^`]+)`/g, '<code>$1</code>')
-          .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-          .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>');
-      }
-
-      function tableCellsPreview(row) {
-        const cells = [];
-        let value = '';
-        let escaped = false;
-        let source = String(row || '').trim();
-        if (source.startsWith('|')) source = source.slice(1);
-        if (source.endsWith('|')) source = source.slice(0, -1);
-        for (const character of source) {
-          if (escaped) {
-            value += character;
-            escaped = false;
-          } else if (character === '\\') {
-            escaped = true;
-          } else if (character === '|') {
-            cells.push(value.trim());
-            value = '';
-          } else {
-            value += character;
-          }
-        }
-        if (escaped) value += '\\';
-        cells.push(value.trim());
-        return cells;
-      }
-
-      function tableAlignmentsPreview(row) {
-        const cells = tableCellsPreview(row);
-        if (!cells.length || !cells.every((cell) => /^:?-{3,}:?$/.test(cell))) return null;
-        return cells.map((cell) => {
-          const left = cell.startsWith(':');
-          const right = cell.endsWith(':');
-          if (left && right) return 'center';
-          if (right) return 'right';
-          return 'left';
-        });
-      }
-
-      function renderMarkdownPreview(markdown = '') {
-        const rows = String(markdown || '').replace(/\r\n/g, '\n').split('\n');
-        const html = [];
-        let inList = false;
-        let inCode = false;
-        const codeRows = [];
-        let table = null;
-        const closeList = () => {
-          if (inList) {
-            html.push('</ul>');
-            inList = false;
-          }
-        };
-        const closeTable = () => {
-          if (!table) return;
-          const [header, ...body] = table.rows;
-          const renderRow = (cells, tag) => cells
-            .map((cell, index) => `<${tag} style="text-align:${table.alignments[index] || 'left'}">${inlineMarkdownPreview(cell)}</${tag}>`)
-            .join('');
-          html.push(`<div class="table-wrap"><table><thead><tr>${renderRow(header, 'th')}</tr></thead><tbody>${body.map((row) => `<tr>${renderRow(row, 'td')}</tr>`).join('')}</tbody></table></div>`);
-          table = null;
-        };
-        for (let index = 0; index < rows.length; index += 1) {
-          const row = rows[index];
-          if (row.trim().startsWith('```')) {
-            if (inCode) {
-              html.push(`<pre><code>${escapeHtml(codeRows.join('\n'))}</code></pre>`);
-              codeRows.length = 0;
-              inCode = false;
-            } else {
-              closeList();
-              closeTable();
-              inCode = true;
-            }
-            continue;
-          }
-          if (inCode) {
-            codeRows.push(row);
-            continue;
-          }
-          if (table) {
-            if (row.includes('|')) {
-              table.rows.push(tableCellsPreview(row));
-              continue;
-            }
-            closeTable();
-          }
-          const alignments = rows[index + 1] ? tableAlignmentsPreview(rows[index + 1]) : null;
-          if (row.includes('|') && alignments) {
-            closeList();
-            table = { alignments, rows: [tableCellsPreview(row)] };
-            index += 1;
-            continue;
-          }
-          if (!row.trim()) {
-            closeList();
-            continue;
-          }
-          if (row.startsWith('### ')) {
-            closeList();
-            closeTable();
-            html.push(`<h3>${inlineMarkdownPreview(row.slice(4))}</h3>`);
-          } else if (row.startsWith('## ')) {
-            closeList();
-            closeTable();
-            html.push(`<h2>${inlineMarkdownPreview(row.slice(3))}</h2>`);
-          } else if (row.startsWith('# ')) {
-            closeList();
-            closeTable();
-            html.push(`<h1>${inlineMarkdownPreview(row.slice(2))}</h1>`);
-          } else if (row.startsWith('- ')) {
-            if (!inList) {
-              html.push('<ul>');
-              inList = true;
-            }
-            html.push(`<li>${inlineMarkdownPreview(row.slice(2))}</li>`);
-          } else {
-            closeList();
-            closeTable();
-            html.push(`<p>${inlineMarkdownPreview(row)}</p>`);
-          }
-        }
-        if (inCode) html.push(`<pre><code>${escapeHtml(codeRows.join('\n'))}</code></pre>`);
-        closeList();
-        closeTable();
-        return html.join('\n');
-      }
-
       function stableStringify(value) {
         return JSON.stringify(value ?? null);
       }
@@ -2398,14 +2193,12 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
       function insertIntoArticleContent(text) {
         const textarea = qs('#articleForm textarea[name="content"]');
         if (!textarea) return;
-        textarea.classList.remove('hidden');
         const start = textarea.selectionStart ?? textarea.value.length;
         const end = textarea.selectionEnd ?? textarea.value.length;
         textarea.value = `${textarea.value.slice(0, start)}${text}${textarea.value.slice(end)}`;
         textarea.focus();
         textarea.selectionStart = textarea.selectionEnd = start + text.length;
         readArticleForm();
-        renderArticleLivePreview();
         setDirty(true);
       }
 
@@ -2759,32 +2552,6 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
         };
       }
 
-      function renderArticleLivePreview() {
-        const preview = qs('#articleLivePreview');
-        if (!preview) return;
-        const article = articleFromForm() || state.articles[articleIndex];
-        if (!article) {
-          preview.innerHTML = '<p class="article-live-preview-empty">选择或新建文章后，这里会实时显示预览。</p>';
-          return;
-        }
-        const statusLabel = article.status === 'published' ? '已发布' : '草稿';
-        const body = renderMarkdownPreview(article.content);
-        preview.innerHTML = `
-          <header class="article-live-preview-header">
-            <div class="article-live-preview-meta">
-              <span class="badge ${escapeHtml(article.kind || 'essay')}">${escapeHtml(article.category || articleKindDefaults[article.kind] || '未分类')}</span>
-              <span>${escapeHtml(statusLabel)}</span>
-              <span>${escapeHtml(article.date || '未设置日期')}</span>
-            </div>
-            <h1>${escapeHtml(article.title || '未命名文章')}</h1>
-            <p class="article-live-preview-excerpt">${escapeHtml(article.excerpt || '文章摘要会显示在这里。')}</p>
-          </header>
-          <div class="markdown-preview article-live-preview-markdown active">
-            ${body || '<p class="article-live-preview-empty">正文内容会实时显示在这里。</p>'}
-          </div>
-        `;
-      }
-
       function renderArticleForm() {
         const a = state.articles[articleIndex] || {};
         const sourcePath = a.slug ? `content/articles/${a.slug}.md` : '保存后生成 Markdown 文件';
@@ -2857,7 +2624,6 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
           const generated = slugify(title) || `post-${today()}`;
           slugInput.value = makeUniqueArticleSlug(generated);
           readArticleForm();
-          renderArticleLivePreview();
           setDirty(true);
         });
         qs('#applyArticleTemplate').addEventListener('click', () => {
@@ -2868,7 +2634,6 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
           textarea.value = template.replaceAll('\\n', '\n');
           setDirty(true);
           readArticleForm();
-          renderArticleLivePreview();
         });
         qs('#deleteArticle').addEventListener('click', () => {
           if (!confirm('确定删除当前文章？保存后才会真正写入。')) return;
@@ -2877,9 +2642,6 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
           setDirty(true);
           renderArticles();
         });
-        qs('#articleForm').addEventListener('input', renderArticleLivePreview);
-        qs('#articleForm').addEventListener('change', renderArticleLivePreview);
-        renderArticleLivePreview();
       }
 
       function readArticleForm() {
