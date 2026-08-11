@@ -121,26 +121,24 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
           </div>
           <div class="admin-workbench">
             <div class="editor-surface record-editor">
+              <section id="articleImportResult" class="import-panel article-import-result hidden" aria-live="polite"></section>
               <div class="article-browser">
                 <div id="articleListTools" class="article-list-tools"></div>
                 <div id="articleList" class="record-list"></div>
                 <div id="articlePagination" class="article-pagination"></div>
               </div>
               <form id="articleForm" class="admin-form article-form"></form>
-              <section id="articleImportPanel" class="import-panel hidden"></section>
               <section id="contentAuditPanel" class="import-panel hidden"></section>
             </div>
-            <aside class="preview-surface">
+            <aside class="preview-surface article-live-preview-surface">
               <div class="preview-head">
                 <div>
-                  <p class="eyebrow">Article Preview</p>
-                  <h3>文章页预览</h3>
+                  <p class="eyebrow">Live Draft</p>
+                  <h3>实时文章预览</h3>
                 </div>
                 <a class="btn secondary" id="articlePreviewLink" href="/" target="_blank" rel="noreferrer">打开</a>
               </div>
-              <div class="preview-viewport">
-                <iframe class="front-preview" id="articlePreview" src="/?preview=articles" title="文章预览"></iframe>
-              </div>
+              <article id="articleLivePreview" class="article-live-preview"></article>
             </aside>
           </div>
         </section>
@@ -378,6 +376,73 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
       min-width: 0;
       padding: 2px 8px 4px 2px;
       border-right: 1px solid rgba(135, 196, 237, 0.12);
+    }
+
+    .article-import-result,
+    #contentAuditPanel {
+      grid-column: 1 / -1;
+    }
+
+    .article-live-preview-surface {
+      min-width: 0;
+    }
+
+    .article-live-preview {
+      min-height: min(62vh, 680px);
+      max-height: min(72vh, 780px);
+      overflow: auto;
+      padding: clamp(22px, 3vw, 40px);
+      border: 1px solid rgba(135, 196, 237, 0.18);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.92);
+      color: var(--text-secondary);
+    }
+
+    .article-live-preview-header {
+      padding-bottom: 22px;
+      border-bottom: 1px solid rgba(135, 196, 237, 0.18);
+    }
+
+    .article-live-preview-meta {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px 12px;
+      margin-bottom: 14px;
+      color: var(--text-tertiary);
+      font-family: var(--font-mono);
+      font-size: 12px;
+    }
+
+    .article-live-preview h1 {
+      margin: 0;
+      color: var(--text-primary);
+      font-family: var(--font-display);
+      font-size: 36px;
+      line-height: 1.16;
+    }
+
+    .article-live-preview-excerpt {
+      margin: 14px 0 0;
+      color: var(--text-tertiary);
+      line-height: 1.7;
+    }
+
+    .article-live-preview-markdown.markdown-preview {
+      display: block;
+      min-height: 0;
+      max-height: none;
+      margin-top: 24px;
+      padding: 0;
+      overflow: visible;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+    }
+
+    .article-live-preview-empty {
+      margin: 0;
+      color: var(--text-tertiary);
     }
 
     .article-list-tools {
@@ -850,6 +915,35 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
 
     .import-options input {
       accent-color: var(--bright-cyan);
+    }
+
+    .import-result-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .import-result-item {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      border: 1px solid rgba(135, 196, 237, 0.16);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.7);
+    }
+
+    .import-result-item strong,
+    .import-result-item span {
+      display: block;
+      overflow-wrap: anywhere;
+    }
+
+    .import-result-item span {
+      margin-top: 3px;
+      color: var(--text-tertiary);
+      font-family: var(--font-mono);
+      font-size: 11px;
     }
 
     .source-path-card {
@@ -1630,6 +1724,16 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
     }
 
     @media (max-width: 760px) {
+      .article-live-preview {
+        min-height: 360px;
+        max-height: none;
+        padding: 20px;
+      }
+
+      .article-live-preview h1 {
+        font-size: 28px;
+      }
+
       .import-grid {
         grid-template-columns: 1fr;
       }
@@ -1687,7 +1791,6 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
       let projectIndex = 0;
       let articleIndex = 0;
       let isDirty = false;
-      let articleImportDraft = null;
       let articlePage = 1;
       const articlePageSize = 12;
       const articleFilters = { query: '', status: 'all', kind: 'all', sort: 'date-desc' };
@@ -1874,85 +1977,52 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
         return errors;
       }
 
-      function makeUniqueArticleSlug(slug) {
-        const taken = new Set(state.articles.map((article) => article.slug));
-        let next = slugPattern.test(slug) ? slug : 'imported-article';
+      function makeUniqueArticleSlug(slug, taken = new Set(state.articles.map((article) => article.slug))) {
+        const base = slugPattern.test(slug) ? slug : 'imported-article';
+        let next = base;
         let counter = 2;
         while (taken.has(next)) {
-          next = `${slug}-${counter}`;
+          next = `${base}-${counter}`;
           counter += 1;
         }
         return next;
       }
 
-      function renderArticleImportPanel() {
-        const panel = qs('#articleImportPanel');
+      function renderArticleImportResult({ imported = [], renamed = [], errors = [] }) {
+        const panel = qs('#articleImportResult');
         if (!panel) return;
-        if (!articleImportDraft) {
-          panel.classList.add('hidden');
-          panel.innerHTML = '';
-          return;
-        }
-
-        const { article, errors, fileName, existingIndex } = articleImportDraft;
-        const hasConflict = existingIndex >= 0;
         panel.classList.remove('hidden');
         panel.innerHTML = `
           <div class="import-panel-head">
             <div>
               <p class="eyebrow">Markdown Import</p>
-              <h3>${escapeHtml(fileName)}</h3>
+              <h3>${imported.length ? `已导入 ${imported.length} 篇文章` : '导入未完成'}</h3>
             </div>
-            <button class="btn secondary" id="cancelArticleImport" type="button">取消</button>
+            <button class="btn secondary" id="closeArticleImportResult" type="button">关闭</button>
           </div>
-          ${errors.length ? `<div class="import-errors">${errors.map((error) => `<div>${escapeHtml(error)}</div>`).join('')}</div>` : ''}
-          ${hasConflict ? `<div class="import-warning">已存在 slug 为 ${escapeHtml(article.slug)} 的文章。请选择覆盖已有文章，或另存为新文章。</div>` : ''}
-          <div class="import-grid">
-            <div class="import-field"><span>标题</span><strong>${escapeHtml(article.title || '未填写')}</strong></div>
-            <div class="import-field"><span>Slug</span><strong>${escapeHtml(article.slug)}</strong></div>
-            <div class="import-field"><span>日期</span><strong>${escapeHtml(article.date)}</strong></div>
-            <div class="import-field"><span>类型</span><strong>${escapeHtml(article.kind)}</strong></div>
-            <div class="import-field"><span>分类</span><strong>${escapeHtml(article.category || '未填写')}</strong></div>
-            <div class="import-field"><span>标签</span><strong>${escapeHtml((article.tags || []).join(', ') || '无')}</strong></div>
-          </div>
-          <pre class="import-body-preview">${escapeHtml(article.content.slice(0, 1200) || '正文为空')}</pre>
-          ${hasConflict ? `
-            <div class="import-options">
-              <label><input type="radio" name="articleImportMode" value="replace" ${articleImportDraft.mode === 'replace' ? 'checked' : ''} />覆盖已有文章</label>
-              <label><input type="radio" name="articleImportMode" value="new" ${articleImportDraft.mode === 'new' ? 'checked' : ''} />另存为新文章</label>
+          ${imported.length ? `<div class="import-result-list">${imported.map(({ article, fileName }) => `
+            <div class="import-result-item">
+              <div><strong>${escapeHtml(article.title)}</strong><span>${escapeHtml(fileName)} · ${escapeHtml(article.slug)}</span></div>
+              <button class="btn secondary" type="button" data-imported-article="${escapeHtml(article.slug)}">查看</button>
             </div>
-          ` : ''}
-          <div class="form-actions">
-            <button class="btn" id="confirmArticleImport" type="button" ${errors.length ? 'disabled' : ''}>确认导入</button>
-          </div>
+          `).join('')}</div>` : ''}
+          ${renamed.length ? `<div class="import-warning">${renamed.map(({ fileName, from, to }) => `<div>${escapeHtml(fileName)}：Slug ${escapeHtml(from)} 已存在，已改为 ${escapeHtml(to)}。</div>`).join('')}</div>` : ''}
+          ${errors.length ? `<div class="import-errors">${errors.map(({ fileName, messages }) => `<div><strong>${escapeHtml(fileName)}</strong>：${messages.map(escapeHtml).join('；')}</div>`).join('')}</div>` : ''}
         `;
 
-        qs('#cancelArticleImport')?.addEventListener('click', () => {
-          articleImportDraft = null;
-          renderArticleImportPanel();
+        qs('#closeArticleImportResult')?.addEventListener('click', () => {
+          panel.classList.add('hidden');
+          panel.innerHTML = '';
         });
-        qsa('input[name="articleImportMode"]').forEach((input) => input.addEventListener('change', () => {
-          articleImportDraft.mode = input.value;
+        qsa('[data-imported-article]').forEach((button) => button.addEventListener('click', () => {
+          readArticleForm();
+          const nextIndex = state.articles.findIndex((article) => article.slug === button.dataset.importedArticle);
+          if (nextIndex < 0) return;
+          focusArticle(nextIndex, { resetFilters: true });
+          renderArticles();
+          qs('#articleForm')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }));
-        qs('#confirmArticleImport')?.addEventListener('click', confirmArticleImport);
-      }
-
-      function confirmArticleImport() {
-        if (!articleImportDraft || articleImportDraft.errors.length) return;
-        readArticleForm();
-        const imported = { ...articleImportDraft.article, tags: [...articleImportDraft.article.tags] };
-        if (articleImportDraft.existingIndex >= 0 && articleImportDraft.mode === 'replace') {
-          state.articles[articleImportDraft.existingIndex] = imported;
-          articleIndex = articleImportDraft.existingIndex;
-        } else {
-          imported.slug = makeUniqueArticleSlug(imported.slug);
-          state.articles.unshift(imported);
-          articleIndex = 0;
-        }
-        articleImportDraft = null;
-        setDirty(true);
-        renderArticles();
-        qs('#saveMessage').textContent = '已导入到编辑列表，点击“保存全部”后写入 Markdown 文件。';
+        panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }
 
       function downloadTemplate() {
@@ -2329,12 +2399,13 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
         const textarea = qs('#articleForm textarea[name="content"]');
         if (!textarea) return;
         textarea.classList.remove('hidden');
-        qs('#markdownPreview')?.classList.remove('active');
         const start = textarea.selectionStart ?? textarea.value.length;
         const end = textarea.selectionEnd ?? textarea.value.length;
         textarea.value = `${textarea.value.slice(0, start)}${text}${textarea.value.slice(end)}`;
         textarea.focus();
         textarea.selectionStart = textarea.selectionEnd = start + text.length;
+        readArticleForm();
+        renderArticleLivePreview();
         setDirty(true);
       }
 
@@ -2344,8 +2415,12 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
         if (message && value) message.textContent = '有未保存更改。';
       }
 
-      studio.addEventListener('input', () => setDirty(true));
-      studio.addEventListener('change', () => setDirty(true));
+      const syncStudioDraft = (event) => {
+        if (event.target.closest('#articleForm')) readArticleForm();
+        setDirty(true);
+      };
+      studio.addEventListener('input', syncStudioDraft);
+      studio.addEventListener('change', syncStudioDraft);
       window.addEventListener('beforeunload', (event) => {
         if (!isDirty) return;
         event.preventDefault();
@@ -2358,17 +2433,15 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
         const projectUrl = selectedProject?.slug ? `/project/${encodeURIComponent(selectedProject.slug)}` : '/projects';
         const articleUrl = selectedArticle?.slug ? `/articles/${encodeURIComponent(selectedArticle.slug)}` : '/';
         const projectPreview = qs('#projectPreview');
-        const articlePreview = qs('#articlePreview');
         const projectLink = qs('#projectPreviewLink');
         const articleLink = qs('#articlePreviewLink');
 
         if (projectPreview) projectPreview.src = `${projectUrl}?preview=${version}`;
-        if (articlePreview) articlePreview.src = `${articleUrl}?preview=${version}`;
         if (projectLink) projectLink.href = projectUrl;
         if (articleLink) articleLink.href = articleUrl;
 
         qsa('.front-preview').forEach((frame) => {
-          if (frame.id !== 'projectPreview' && frame.id !== 'articlePreview') {
+          if (frame.id !== 'projectPreview') {
             frame.src = `/?preview=${version}`;
           }
         });
@@ -2567,9 +2640,9 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
         syncPreviewFrames();
       }
 
-      function renderArticleList() {
+      function filteredArticleEntries() {
         const query = articleFilters.query.trim().toLowerCase();
-        const entries = state.articles
+        return state.articles
           .map((article, index) => ({ article, index }))
           .filter(({ article }) => {
             const searchable = [article.title, article.slug, article.category, article.tags?.join(' ')].join(' ').toLowerCase();
@@ -2583,6 +2656,22 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
             const rightDate = Date.parse(`${right.article.date || ''}T00:00:00`) || 0;
             return articleFilters.sort === 'date-asc' ? leftDate - rightDate : rightDate - leftDate;
           });
+      }
+
+      function focusArticle(index, options = {}) {
+        articleIndex = Math.max(0, Math.min(index, state.articles.length - 1));
+        if (options.resetFilters) {
+          articleFilters.query = '';
+          articleFilters.status = 'all';
+          articleFilters.kind = 'all';
+        }
+        const entries = filteredArticleEntries();
+        const position = entries.findIndex((entry) => entry.index === articleIndex);
+        articlePage = position >= 0 ? Math.floor(position / articlePageSize) + 1 : 1;
+      }
+
+      function renderArticleList() {
+        const entries = filteredArticleEntries();
         const totalPages = Math.max(1, Math.ceil(entries.length / articlePageSize));
         articlePage = Math.min(articlePage, totalPages);
         const visibleEntries = entries.slice((articlePage - 1) * articlePageSize, articlePage * articlePageSize);
@@ -2649,6 +2738,53 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
         }));
       }
 
+      function articleFromForm() {
+        const formEl = qs('#articleForm');
+        if (!formEl || !state.articles[articleIndex]) return null;
+        const form = new FormData(formEl);
+        return {
+          slug: valueAsString(form.get('slug')),
+          title: valueAsString(form.get('title')),
+          date: valueAsString(form.get('date')),
+          status: valueAsString(form.get('status')),
+          kind: valueAsString(form.get('kind')),
+          category: valueAsString(form.get('category')),
+          projectSlug: valueAsString(form.get('projectSlug')),
+          lifecycle: valueAsString(form.get('lifecycle')),
+          tags: splitList(form.get('tags')),
+          company: valueAsString(form.get('company')),
+          position: valueAsString(form.get('position')),
+          excerpt: valueAsString(form.get('excerpt')),
+          content: valueAsString(form.get('content'))
+        };
+      }
+
+      function renderArticleLivePreview() {
+        const preview = qs('#articleLivePreview');
+        if (!preview) return;
+        const article = articleFromForm() || state.articles[articleIndex];
+        if (!article) {
+          preview.innerHTML = '<p class="article-live-preview-empty">选择或新建文章后，这里会实时显示预览。</p>';
+          return;
+        }
+        const statusLabel = article.status === 'published' ? '已发布' : '草稿';
+        const body = renderMarkdownPreview(article.content);
+        preview.innerHTML = `
+          <header class="article-live-preview-header">
+            <div class="article-live-preview-meta">
+              <span class="badge ${escapeHtml(article.kind || 'essay')}">${escapeHtml(article.category || articleKindDefaults[article.kind] || '未分类')}</span>
+              <span>${escapeHtml(statusLabel)}</span>
+              <span>${escapeHtml(article.date || '未设置日期')}</span>
+            </div>
+            <h1>${escapeHtml(article.title || '未命名文章')}</h1>
+            <p class="article-live-preview-excerpt">${escapeHtml(article.excerpt || '文章摘要会显示在这里。')}</p>
+          </header>
+          <div class="markdown-preview article-live-preview-markdown active">
+            ${body || '<p class="article-live-preview-empty">正文内容会实时显示在这里。</p>'}
+          </div>
+        `;
+      }
+
       function renderArticleForm() {
         const a = state.articles[articleIndex] || {};
         const sourcePath = a.slug ? `content/articles/${a.slug}.md` : '保存后生成 Markdown 文件';
@@ -2703,12 +2839,9 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
                 <option value="essay">月度总结模板</option>
               </select>
               <button class="btn secondary" id="applyArticleTemplate" type="button">套用模板</button>
-              <button class="btn secondary" id="showMarkdownSource" type="button">源码</button>
-              <button class="btn secondary" id="showMarkdownPreview" type="button">预览</button>
             </div>
             ${field('excerpt', '文章摘要', a.excerpt, { type: 'textarea', full: true, size: 'area-md', rows: 5, placeholder: '摘要会出现在列表和文章页头部。' })}
             ${field('content', '正文 Markdown', a.content, { type: 'textarea', full: true, content: true, size: 'area-xl', rows: 18, placeholder: '## 小标题\\n\\n开始写正文...' })}
-            <div id="markdownPreview" class="markdown-preview full"></div>
           `, 'article-writing-block')}
 
           <div class="form-actions"><button class="btn secondary" id="deleteArticle" type="button">删除文章</button></div>
@@ -2723,6 +2856,8 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
           const slugInput = formEl.querySelector('[name="slug"]');
           const generated = slugify(title) || `post-${today()}`;
           slugInput.value = makeUniqueArticleSlug(generated);
+          readArticleForm();
+          renderArticleLivePreview();
           setDirty(true);
         });
         qs('#applyArticleTemplate').addEventListener('click', () => {
@@ -2732,17 +2867,8 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
           if (textarea.value.trim() && !confirm('当前正文已有内容，确定用模板覆盖？')) return;
           textarea.value = template.replaceAll('\\n', '\n');
           setDirty(true);
-        });
-        qs('#showMarkdownSource').addEventListener('click', () => {
-          qs('#articleForm textarea[name="content"]').classList.remove('hidden');
-          qs('#markdownPreview').classList.remove('active');
-        });
-        qs('#showMarkdownPreview').addEventListener('click', () => {
-          const textarea = qs('#articleForm textarea[name="content"]');
-          const preview = qs('#markdownPreview');
-          preview.innerHTML = renderMarkdownPreview(textarea.value);
-          textarea.classList.add('hidden');
-          preview.classList.add('active');
+          readArticleForm();
+          renderArticleLivePreview();
         });
         qs('#deleteArticle').addEventListener('click', () => {
           if (!confirm('确定删除当前文章？保存后才会真正写入。')) return;
@@ -2751,27 +2877,14 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
           setDirty(true);
           renderArticles();
         });
+        qs('#articleForm').addEventListener('input', renderArticleLivePreview);
+        qs('#articleForm').addEventListener('change', renderArticleLivePreview);
+        renderArticleLivePreview();
       }
 
       function readArticleForm() {
-        const formEl = qs('#articleForm');
-        if (!formEl || !state.articles[articleIndex]) return;
-        const form = new FormData(formEl);
-        state.articles[articleIndex] = {
-          slug: form.get('slug'),
-          title: form.get('title'),
-          date: form.get('date'),
-          status: form.get('status'),
-          kind: form.get('kind'),
-          category: form.get('category'),
-          projectSlug: form.get('projectSlug'),
-          lifecycle: form.get('lifecycle'),
-          tags: splitList(form.get('tags')),
-          company: form.get('company'),
-          position: form.get('position'),
-          excerpt: form.get('excerpt'),
-          content: form.get('content')
-        };
+        const article = articleFromForm();
+        if (article) state.articles[articleIndex] = article;
       }
 
       function renderArticles() {
@@ -2822,9 +2935,10 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
           excerpt: '',
           content: '## 标题\n\n正文内容。'
         });
-        articleIndex = 0;
+        focusArticle(0, { resetFilters: true });
         setDirty(true);
         renderArticles();
+        qs('#saveMessage').textContent = '已新建文章，上一文章的未保存内容仍保留在编辑列表中。';
       });
 
       qs('#importArticle').addEventListener('click', () => {
@@ -2879,79 +2993,40 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
         const files = Array.from(event.target.files || []);
         if (!files.length) return;
         readArticleForm();
-        if (files.length > 1) {
-          const imported = [];
-          const errors = [];
-          for (const file of files) {
-            try {
-              const markdown = await file.text();
-              const { article, hasFrontmatter } = parseArticleMarkdown(markdown, file.name);
-              const nextErrors = validateImportedArticle(article, hasFrontmatter);
-              if (nextErrors.length) errors.push(`${file.name}：${nextErrors.join('；')}`);
-              else imported.push(article);
-            } catch {
-              errors.push(`${file.name}：读取失败，请确认文件是 UTF-8 编码。`);
-            }
+        const candidates = [];
+        const errors = [];
+        for (const file of files) {
+          try {
+            const markdown = await file.text();
+            const { article, hasFrontmatter } = parseArticleMarkdown(markdown, file.name);
+            const messages = validateImportedArticle(article, hasFrontmatter);
+            if (messages.length) errors.push({ fileName: file.name, messages });
+            else candidates.push({ article, fileName: file.name });
+          } catch {
+            errors.push({ fileName: file.name, messages: ['读取失败，请确认文件是 UTF-8 编码的 Markdown。'] });
           }
-          if (errors.length) {
-            articleImportDraft = {
-              article: { slug: '', title: '', date: today(), status: 'draft', kind: 'devlog', category: '开发日志', projectSlug: '', lifecycle: '', tags: [], company: '', position: '', excerpt: '', content: '' },
-              fileName: '批量导入失败',
-              existingIndex: -1,
-              mode: 'new',
-              errors
-            };
-            renderArticleImportPanel();
-            return;
-          }
-          imported.reverse().forEach((article) => {
-            article.slug = makeUniqueArticleSlug(article.slug);
-            state.articles.unshift(article);
-          });
-          articleIndex = 0;
-          articleImportDraft = null;
-          setDirty(true);
-          renderArticles();
-          qs('#saveMessage').textContent = `已导入 ${imported.length} 篇文章，点击“保存全部”后写入 Markdown 文件。`;
-          return;
         }
 
-        const file = files[0];
-        try {
-          const markdown = await file.text();
-          const { article, hasFrontmatter } = parseArticleMarkdown(markdown, file.name);
-          const existingIndex = state.articles.findIndex((item) => item.slug === article.slug);
-          articleImportDraft = {
-            article,
-            fileName: file.name,
-            existingIndex,
-            mode: existingIndex >= 0 ? 'replace' : 'new',
-            errors: validateImportedArticle(article, hasFrontmatter)
-          };
-        } catch {
-          articleImportDraft = {
-            article: {
-              slug: '',
-              title: '',
-              date: today(),
-              status: 'draft',
-              kind: 'devlog',
-              category: '开发日志',
-              projectSlug: '',
-              lifecycle: '',
-              tags: [],
-              company: '',
-              position: '',
-              excerpt: '',
-              content: ''
-            },
-            fileName: file.name,
-            existingIndex: -1,
-            mode: 'new',
-            errors: ['读取文件失败，请确认文件是 UTF-8 编码的 Markdown。']
-          };
+        const taken = new Set(state.articles.map((article) => article.slug));
+        const renamed = [];
+        const imported = candidates.map(({ article, fileName }) => {
+          const originalSlug = article.slug;
+          article.slug = makeUniqueArticleSlug(originalSlug, taken);
+          taken.add(article.slug);
+          if (article.slug !== originalSlug) renamed.push({ fileName, from: originalSlug, to: article.slug });
+          return { article, fileName };
+        });
+
+        if (imported.length) {
+          state.articles.unshift(...imported.map(({ article }) => article));
+          focusArticle(0, { resetFilters: true });
+          setDirty(true);
+          renderArticles();
         }
-        renderArticleImportPanel();
+        renderArticleImportResult({ imported, renamed, errors });
+        qs('#saveMessage').textContent = imported.length
+          ? `已导入 ${imported.length} 篇文章${errors.length ? `，另有 ${errors.length} 个文件格式有误` : ''}，点击“保存全部”后写入 Markdown 文件。`
+          : `导入失败：${errors.length} 个文件格式有误。`;
       });
 
       qs('#exportProject').addEventListener('click', () => {
