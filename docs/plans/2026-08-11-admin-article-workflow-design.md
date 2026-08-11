@@ -24,7 +24,7 @@ Content is written to Markdown files only after the existing "Save all" action a
 
 ## Editor Layout
 
-The article editor uses the full workspace width with a persistent article browser on the left. On wide screens, the title and classification sections share one row, while the excerpt and Markdown body use a narrower/wider split inside the writing section. Breakpoints return these areas to a single column when horizontal space is limited. The saved-page preview is intentionally omitted; an "Open article page" link remains in the top action bar for checking published output.
+The article editor uses the full workspace width with a persistent article browser on the left. On wide screens, the title and classification sections share one row, while the excerpt and Markdown body use a narrower/wider split inside the writing section. Breakpoints return these areas to a single column when horizontal space is limited. Embedded previews are intentionally omitted from the settings, project, and article workspaces; links in each top action bar open the corresponding frontend page for checking published output.
 
 ## Error Handling
 

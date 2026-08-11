@@ -45,6 +45,7 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
             <div class="panel-actions">
               <button class="btn secondary" id="importSettings" type="button">导入设置</button>
               <button class="btn secondary" id="exportSettings" type="button">导出设置</button>
+              <a class="btn secondary" href="/" target="_blank" rel="noreferrer">打开首页</a>
               <input id="settingsImportFile" class="hidden-file-input" type="file" accept=".md,text/markdown,text/plain" />
             </div>
           </div>
@@ -52,18 +53,6 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
             <div class="editor-surface">
               <form id="settingsForm" class="settings-board"></form>
             </div>
-            <aside class="preview-surface">
-              <div class="preview-head">
-                <div>
-                  <p class="eyebrow">Live Preview</p>
-                  <h3>首页预览</h3>
-                </div>
-                <a class="btn secondary" href="/" target="_blank" rel="noreferrer">打开</a>
-              </div>
-              <div class="preview-viewport">
-                <iframe class="front-preview" src="/?preview=settings" title="站点设置预览"></iframe>
-              </div>
-            </aside>
           </div>
         </section>
 
@@ -77,6 +66,7 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
             <div class="panel-actions">
               <button class="btn secondary" id="importProject" type="button">导入项目</button>
               <button class="btn secondary" id="exportProject" type="button">导出项目</button>
+              <a class="btn secondary" id="projectPreviewLink" href="/projects" target="_blank" rel="noreferrer">打开项目页</a>
               <button class="btn secondary" id="newProject" type="button">新增项目</button>
               <input id="projectImportFile" class="hidden-file-input" type="file" accept=".md,text/markdown,text/plain" />
             </div>
@@ -86,18 +76,6 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
               <div id="projectList" class="record-list"></div>
               <form id="projectForm" class="admin-form"></form>
             </div>
-            <aside class="preview-surface">
-              <div class="preview-head">
-                <div>
-                  <p class="eyebrow">Project Preview</p>
-                  <h3>前台项目页</h3>
-                </div>
-                <a class="btn secondary" id="projectPreviewLink" href="/projects" target="_blank" rel="noreferrer">打开</a>
-              </div>
-              <div class="preview-viewport">
-                <iframe class="front-preview" id="projectPreview" src="/projects?preview=projects" title="项目预览"></iframe>
-              </div>
-            </aside>
           </div>
         </section>
 
@@ -238,13 +216,12 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
 
     .admin-workbench {
       display: grid;
-      grid-template-columns: minmax(560px, 1fr) minmax(520px, 640px);
+      grid-template-columns: minmax(0, 1fr);
       gap: 22px;
       align-items: start;
     }
 
-    .editor-surface,
-    .preview-surface {
+    .editor-surface {
       min-width: 0;
       border: 1px solid rgba(255, 255, 255, 0.6);
       border-radius: 22px;
@@ -255,51 +232,6 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
 
     .editor-surface {
       padding: 18px;
-    }
-
-    .preview-surface {
-      position: sticky;
-      top: 92px;
-      padding: 16px;
-      background:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(240, 249, 255, 0.78)),
-        radial-gradient(circle at 50% 0%, rgba(249, 248, 113, 0.16), transparent 12rem);
-    }
-
-    .preview-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      margin-bottom: 14px;
-    }
-
-    .preview-head h3 {
-      margin: 0;
-      font-family: var(--font-display);
-      font-size: 18px;
-    }
-
-    .preview-viewport {
-      width: 100%;
-      height: min(68vh, 720px);
-      min-height: 520px;
-      overflow: hidden;
-      border: 1px solid rgba(135, 196, 237, 0.18);
-      border-radius: 18px;
-      background: white;
-      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4);
-    }
-
-    .front-preview {
-      display: block;
-      width: 1200px;
-      min-width: 1200px;
-      height: 1200px;
-      border: 0;
-      border-radius: 0;
-      background: white;
-      transform-origin: 0 0;
     }
 
     .record-editor {
@@ -917,20 +849,6 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
       border-radius: 999px;
       background: rgba(255, 255, 255, 0.86);
       color: var(--text-primary);
-    }
-
-    @media (max-width: 1440px) {
-      .admin-workbench {
-        grid-template-columns: minmax(0, 1fr);
-      }
-
-      .preview-surface {
-        position: static;
-      }
-
-      .preview-viewport {
-        height: 560px;
-      }
     }
 
     @media (max-width: 1100px) {
@@ -2220,45 +2138,17 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
         event.returnValue = '';
       });
 
-      function syncPreviewFrames(version = Date.now()) {
+      function syncOpenLinks() {
         const selectedProject = state.projects[projectIndex];
         const selectedArticle = state.articles[articleIndex];
         const projectUrl = selectedProject?.slug ? `/project/${encodeURIComponent(selectedProject.slug)}` : '/projects';
         const articleUrl = selectedArticle?.slug ? `/articles/${encodeURIComponent(selectedArticle.slug)}` : '/';
-        const projectPreview = qs('#projectPreview');
         const projectLink = qs('#projectPreviewLink');
         const articleLink = qs('#articlePreviewLink');
 
-        if (projectPreview) projectPreview.src = `${projectUrl}?preview=${version}`;
         if (projectLink) projectLink.href = projectUrl;
         if (articleLink) articleLink.href = articleUrl;
-
-        qsa('.front-preview').forEach((frame) => {
-          if (frame.id !== 'projectPreview') {
-            frame.src = `/?preview=${version}`;
-          }
-        });
       }
-
-      function scalePreviewFrames() {
-        const canvasWidth = 1200;
-        qsa('.preview-viewport').forEach((viewport) => {
-          const frame = viewport.querySelector('.front-preview');
-          if (!frame) return;
-          const scale = Math.min(1, viewport.clientWidth / canvasWidth);
-          frame.style.width = `${canvasWidth}px`;
-          frame.style.minWidth = `${canvasWidth}px`;
-          frame.style.height = `${Math.max(900, viewport.clientHeight / Math.max(scale, 0.1))}px`;
-          frame.style.transform = `scale(${scale})`;
-        });
-      }
-
-      const previewResizeObserver = 'ResizeObserver' in window
-        ? new ResizeObserver(scalePreviewFrames)
-        : null;
-
-      qsa('.preview-viewport').forEach((viewport) => previewResizeObserver?.observe(viewport));
-      window.addEventListener('resize', scalePreviewFrames);
 
       function field(name, label, value = '', options = {}) {
         const full = options.full ? ' full' : '';
@@ -2430,7 +2320,7 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
       function renderProjects() {
         renderProjectList();
         renderProjectForm();
-        syncPreviewFrames();
+        syncOpenLinks();
       }
 
       function filteredArticleEntries() {
@@ -2652,14 +2542,13 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
       function renderArticles() {
         renderArticleList();
         renderArticleForm();
-        syncPreviewFrames();
+        syncOpenLinks();
       }
 
       qsa('.studio-tab').forEach((button) => button.addEventListener('click', () => {
         qsa('.studio-tab').forEach((item) => item.classList.remove('active'));
         button.classList.add('active');
         qsa('[data-panel]').forEach((panel) => panel.classList.toggle('hidden', panel.dataset.panel !== button.dataset.tab));
-        requestAnimationFrame(scalePreviewFrames);
       }));
 
       qs('#newProject').addEventListener('click', () => {
@@ -2867,7 +2756,7 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
             savedSnapshot = JSON.parse(JSON.stringify(state));
             setDirty(false);
             qs('#saveMessage').textContent = `已保存，前台已刷新。${new Date().toLocaleTimeString()}`;
-            syncPreviewFrames(result.version?.version || Date.now());
+            syncOpenLinks();
             if ('BroadcastChannel' in window) {
               const channel = new BroadcastChannel('codepulse-content');
               channel.postMessage({ type: 'content-saved', savedAt: result.version?.version || Date.now() });
@@ -2920,8 +2809,7 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
           renderSettings();
           renderProjects();
           renderArticles();
-          syncPreviewFrames(data.version?.version || Date.now());
-          scalePreviewFrames();
+          syncOpenLinks();
         })
         .catch(() => undefined);
     }
