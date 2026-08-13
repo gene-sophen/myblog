@@ -2442,14 +2442,23 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
         qs('#mediaMessage').textContent = `正在上传 ${selected.length} 张图片...`;
         try {
           const response = await fetch('/api/admin/upload-image', { method: 'POST', body: formData });
-          const result = await response.json().catch(() => ({}));
+          const responseText = await response.text();
+          let result = {};
+          try {
+            result = responseText ? JSON.parse(responseText) : {};
+          } catch {
+            result = { error: responseText.trim().slice(0, 160) };
+          }
           if (response.status === 401) {
             handleSessionExpiry();
             return;
           }
           const uploadedCount = Array.isArray(result.images) ? result.images.length : 0;
           const errors = Array.isArray(result.errors) ? result.errors : [];
-          if (!response.ok && !uploadedCount) throw new Error(result.error || errors[0]?.message || '图片上传失败。');
+          if (!response.ok && !uploadedCount) {
+            const reason = result.error || errors[0]?.message || `服务器返回 HTTP ${response.status}`;
+            throw new Error(`图片上传失败（${response.status}）：${reason}`);
+          }
           mediaLoaded = false;
           await loadMediaLibrary(true);
           qs('#mediaMessage').textContent = errors.length

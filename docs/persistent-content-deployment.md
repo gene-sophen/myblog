@@ -78,3 +78,12 @@ printf '\nCONTENT_DIR=/opt/gene-blog/content\nMEDIA_DIR=/opt/gene-blog/uploads/a
 ## Admin content backup
 
 The admin media workspace can stream a ZIP containing the current Markdown files and uploaded images. It is useful for manual snapshots and migration, but it does not replace an automated server backup. The ZIP intentionally excludes `.env`, session data, source code, dependencies, `.backups`, and `.system`.
+
+The production Nginx proxy must pass the public host and protocol so Astro can keep its built-in origin check enabled:
+
+```nginx
+proxy_set_header Host $host;
+proxy_set_header X-Forwarded-Host $host;
+proxy_set_header X-Forwarded-Proto $scheme;
+client_max_body_size 60m;
+```

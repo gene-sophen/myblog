@@ -6,6 +6,12 @@ export default defineConfig({
   adapter: node({
     mode: 'standalone'
   }),
+  security: {
+    allowedDomains: [
+      { protocol: 'https', hostname: 'gene-sophen.cloud' },
+      { protocol: 'https', hostname: 'www.gene-sophen.cloud' }
+    ]
+  },
   server: {
     host: '127.0.0.1',
     port: 4321
