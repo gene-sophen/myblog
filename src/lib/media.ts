@@ -76,7 +76,40 @@ function hasValidImageSignature(type: string, buffer: Buffer) {
 }
 
 function relativeMediaUrl(relativePath: string) {
-  return `/media/${relativePath.split(path.sep).map(encodeURIComponent).join('/')}`;
+  return `/media/${relativePath.split(/[\\/]/).map(encodeURIComponent).join('/')}`;
+}
+
+function mediaPath(root: string, relativePath: string) {
+  const segments = relativePath.split('/').filter(Boolean);
+  if (!segments.length || segments.some((segment) => segment === '.' || segment === '..' || segment.includes('\\'))) {
+    throw new MediaValidationError('图片路径无效');
+  }
+  const filePath = path.resolve(root, ...segments);
+  if (!filePath.startsWith(`${root}${path.sep}`) || !isSupportedMediaPath(filePath)) {
+    throw new MediaValidationError('图片路径无效');
+  }
+  return filePath;
+}
+
+async function existingMediaFile(relativePath: string) {
+  const root = getMediaDirectory();
+  const filePath = mediaPath(root, relativePath);
+  try {
+    const [realRoot, realFile, stat] = await Promise.all([fs.realpath(root), fs.realpath(filePath), fs.lstat(filePath)]);
+    if (!stat.isFile() || stat.isSymbolicLink() || !realFile.startsWith(`${realRoot}${path.sep}`)) {
+      throw new MediaValidationError('图片不存在');
+    }
+    return { root, filePath };
+  } catch (error) {
+    if (error instanceof MediaValidationError) throw error;
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') throw new MediaValidationError('图片不存在');
+    throw error;
+  }
+}
+
+export async function getMediaFile(relativePath: string) {
+  const { root, filePath } = await existingMediaFile(relativePath);
+  return mediaItem(filePath, root);
 }
 
 async function mediaItem(filePath: string, root: string): Promise<MediaItem> {
@@ -147,4 +180,59 @@ export async function listMediaFiles(): Promise<MediaItem[]> {
   await visit(root);
   const items = await Promise.all(files.map((filePath) => mediaItem(filePath, root)));
   return items.sort((a, b) => b.modifiedAt.localeCompare(a.modifiedAt) || a.relativePath.localeCompare(b.relativePath));
+}
+
+export async function moveMediaFile(relativePath: string, requestedName: string, requestedFolder: string) {
+  const { root, filePath } = await existingMediaFile(relativePath);
+  const extension = path.extname(filePath).toLowerCase();
+  const folder = normalizeMediaFolder(requestedFolder);
+  const fileName = `${normalizeFileBase(requestedName)}${extension}`;
+  const directory = path.join(root, folder);
+  const destination = mediaPath(root, `${folder}/${fileName}`);
+  if (destination === filePath) return { previousUrl: relativeMediaUrl(relativePath), item: await mediaItem(filePath, root) };
+
+  await fs.mkdir(directory, { recursive: true });
+  const [realRoot, realDirectory] = await Promise.all([fs.realpath(root), fs.realpath(directory)]);
+  if (realDirectory !== realRoot && !realDirectory.startsWith(`${realRoot}${path.sep}`)) {
+    throw new MediaValidationError('目标分组无效');
+  }
+  try {
+    await fs.access(destination);
+    throw new MediaValidationError('目标分组中已存在同名图片');
+  } catch (error) {
+    if (error instanceof MediaValidationError) throw error;
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+  }
+
+  try {
+    await fs.link(filePath, destination);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'EEXIST') throw new MediaValidationError('目标分组中已存在同名图片');
+    throw error;
+  }
+  try {
+    await fs.unlink(filePath);
+  } catch (error) {
+    await fs.unlink(destination).catch(() => undefined);
+    throw error;
+  }
+  return { previousUrl: relativeMediaUrl(relativePath), item: await mediaItem(destination, root) };
+}
+
+export async function restoreMovedMediaFile(currentRelativePath: string, previousRelativePath: string) {
+  const root = getMediaDirectory();
+  const current = mediaPath(root, currentRelativePath);
+  const previous = mediaPath(root, previousRelativePath);
+  await fs.mkdir(path.dirname(previous), { recursive: true });
+  await fs.link(current, previous);
+  await fs.unlink(current);
+}
+
+export async function deleteMediaFile(relativePath: string) {
+  const { root, filePath } = await existingMediaFile(relativePath);
+  const item = await mediaItem(filePath, root);
+  await fs.unlink(filePath);
+  const parent = path.dirname(filePath);
+  if (parent !== root) await fs.rmdir(parent).catch(() => undefined);
+  return item;
 }

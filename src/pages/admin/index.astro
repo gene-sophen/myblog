@@ -148,6 +148,31 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
               <div id="mediaGrid" class="media-grid" aria-live="polite"></div>
             </div>
           </div>
+          <dialog id="mediaEditDialog" class="media-dialog">
+            <form id="mediaEditForm" method="dialog">
+              <div class="media-dialog-head">
+                <div>
+                  <p class="eyebrow">Edit Image</p>
+                  <h3>编辑图片</h3>
+                </div>
+                <button class="media-dialog-close" type="button" aria-label="关闭">&times;</button>
+              </div>
+              <label>
+                <span>图片名称</span>
+                <input id="mediaEditName" type="text" maxlength="120" required />
+                <small id="mediaEditExtension"></small>
+              </label>
+              <label>
+                <span>存储分组</span>
+                <input id="mediaEditFolder" type="text" maxlength="80" required />
+              </label>
+              <p class="media-dialog-note">修改后，文章中引用该图片的地址会自动更新。</p>
+              <div class="media-dialog-actions">
+                <button class="btn secondary media-dialog-cancel" type="button">取消</button>
+                <button class="btn" id="saveMediaEdit" type="submit">保存修改</button>
+              </div>
+            </form>
+          </dialog>
         </section>
       </div>
     )}
@@ -839,6 +864,7 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
 
     .media-item-actions {
       display: flex;
+      flex-wrap: wrap;
       gap: 12px;
       padding-top: 2px;
     }
@@ -855,6 +881,76 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
 
     .media-copy-action:hover {
       text-decoration: underline;
+    }
+
+    .media-delete-action {
+      color: #b42318;
+    }
+
+    .media-dialog {
+      width: min(460px, calc(100vw - 32px));
+      padding: 0;
+      border: 1px solid rgba(135, 196, 237, 0.34);
+      border-radius: 8px;
+      background: #fff;
+      box-shadow: 0 24px 70px rgba(15, 23, 42, 0.24);
+    }
+
+    .media-dialog::backdrop {
+      background: rgba(15, 23, 42, 0.48);
+    }
+
+    .media-dialog form {
+      display: grid;
+      gap: 18px;
+      padding: 24px;
+    }
+
+    .media-dialog-head,
+    .media-dialog-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .media-dialog-head h3,
+    .media-dialog-head p,
+    .media-dialog-note {
+      margin: 0;
+    }
+
+    .media-dialog label {
+      display: grid;
+      gap: 7px;
+    }
+
+    .media-dialog label span {
+      color: var(--text-secondary);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .media-dialog label small,
+    .media-dialog-note {
+      color: var(--text-tertiary);
+      font-size: 12px;
+    }
+
+    .media-dialog-close {
+      width: 36px;
+      height: 36px;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-size: 26px;
+      line-height: 1;
+    }
+
+    .media-dialog-actions {
+      justify-content: flex-end;
     }
 
     .media-empty {
@@ -1848,6 +1944,7 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
       let mediaItems = [];
       let mediaLoaded = false;
       let mediaLoading = false;
+      let editingMediaPath = '';
       let lastSessionActivity = Date.now();
       let lastSessionHeartbeat = Date.now();
       let handlingSessionExpiry = false;
@@ -2376,6 +2473,101 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
         }
       }
 
+      function updateMediaReferencesInState(previousUrl, nextUrl) {
+        if (!previousUrl || !nextUrl || previousUrl === nextUrl) return 0;
+        const escapedUrl = previousUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const pattern = new RegExp(`(!\\[[^\\]]*\\]\\(\\s*)${escapedUrl}(?=\\s*(?:"[^"]*"|'[^']*')?\\s*\\))`, 'g');
+        const updateArticles = (articles, countChanges) => {
+          let changed = 0;
+          articles.forEach((article) => {
+            const nextContent = String(article.content || '').replace(pattern, (_, prefix) => {
+              if (countChanges) changed += 1;
+              return `${prefix}${nextUrl}`;
+            });
+            article.content = nextContent;
+          });
+          return changed;
+        };
+        const changed = updateArticles(state.articles, true);
+        updateArticles(savedSnapshot.articles, false);
+        if (changed) renderArticleForm();
+        return changed;
+      }
+
+      async function mediaRequest(method, body) {
+        const response = await fetch('/api/admin/media', {
+          method,
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        const result = await response.json().catch(() => ({}));
+        if (response.status === 401) {
+          handleSessionExpiry();
+          throw new Error('登录状态已过期');
+        }
+        if (!response.ok) {
+          const referenceText = Array.isArray(result.references) && result.references.length
+            ? `：${result.references.map((item) => item.title || item.slug).join('、')}`
+            : '';
+          throw new Error(`${result.error || `服务器返回 HTTP ${response.status}`}${referenceText}`);
+        }
+        return result;
+      }
+
+      function openMediaEditor(item) {
+        const extension = item.name.match(/\.[^.]+$/)?.[0] || '';
+        editingMediaPath = item.relativePath;
+        qs('#mediaEditName').value = item.name.slice(0, extension ? -extension.length : undefined);
+        qs('#mediaEditFolder').value = item.folder || 'library';
+        qs('#mediaEditExtension').textContent = `文件格式 ${extension || '保持不变'}`;
+        qs('#mediaEditDialog').showModal();
+        qs('#mediaEditName').focus();
+      }
+
+      async function saveMediaEdit() {
+        const button = qs('#saveMediaEdit');
+        button.disabled = true;
+        qs('#mediaMessage').textContent = '正在更新图片及文章引用...';
+        try {
+          const result = await mediaRequest('PATCH', {
+            relativePath: editingMediaPath,
+            name: qs('#mediaEditName').value,
+            folder: qs('#mediaEditFolder').value
+          });
+          const updatedReferences = updateMediaReferencesInState(result.previousUrl, result.image?.url);
+          qs('#mediaEditDialog').close();
+          mediaLoaded = false;
+          await loadMediaLibrary(true);
+          qs('#mediaMessage').textContent = updatedReferences
+            ? `图片已更新，并同步修改 ${updatedReferences} 处文章引用。`
+            : '图片信息已更新。';
+        } catch (error) {
+          qs('#mediaMessage').textContent = error.message || '图片更新失败。';
+        } finally {
+          button.disabled = false;
+        }
+      }
+
+      async function deleteMedia(item) {
+        const escapedUrl = item.url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const referencePattern = new RegExp(`!\\[[^\\]]*\\]\\(\\s*${escapedUrl}(?=\\s*(?:"[^"]*"|'[^']*')?\\s*\\))`);
+        const localReferences = state.articles.filter((article) => referencePattern.test(String(article.content || '')));
+        if (localReferences.length) {
+          qs('#mediaMessage').textContent = `图片仍被文章引用：${localReferences.map((article) => article.title || article.slug).join('、')}。请先移除引用并保存文章。`;
+          return;
+        }
+        if (!confirm(`确定永久删除图片“${item.name}”？此操作无法撤销。`)) return;
+        qs('#mediaMessage').textContent = '正在检查文章引用并删除图片...';
+        try {
+          await mediaRequest('DELETE', { relativePath: item.relativePath });
+          mediaLoaded = false;
+          await loadMediaLibrary(true);
+          qs('#mediaMessage').textContent = '图片已删除。';
+        } catch (error) {
+          qs('#mediaMessage').textContent = error.message || '图片删除失败。';
+        }
+      }
+
       function renderMediaLibrary() {
         const grid = qs('#mediaGrid');
         const summary = qs('#mediaSummary');
@@ -2399,6 +2591,8 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
                 <div class="media-item-actions">
                   <button class="media-copy-action" type="button" data-copy-value="${escapeHtml(item.url)}" data-copy-kind="url">复制地址</button>
                   <button class="media-copy-action" type="button" data-copy-value="${escapeHtml(markdown)}" data-copy-kind="markdown">复制 Markdown</button>
+                  <button class="media-copy-action" type="button" data-media-edit="${escapeHtml(item.relativePath)}">编辑</button>
+                  <button class="media-copy-action media-delete-action" type="button" data-media-delete="${escapeHtml(item.relativePath)}">删除</button>
                 </div>
               </div>
             </article>
@@ -2885,10 +3079,28 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
       qs('#mediaFiles').addEventListener('change', (event) => uploadMediaFiles(event.target.files));
       qs('#mediaSearch').addEventListener('input', renderMediaLibrary);
       qs('#mediaGrid').addEventListener('click', (event) => {
-        const action = event.target.closest('[data-copy-value]');
-        if (!action) return;
-        copyMediaText(action.dataset.copyValue || '', action.dataset.copyKind === 'markdown' ? 'Markdown 图片语法已复制。' : '图片地址已复制。');
+        const copyAction = event.target.closest('[data-copy-value]');
+        if (copyAction) {
+          copyMediaText(copyAction.dataset.copyValue || '', copyAction.dataset.copyKind === 'markdown' ? 'Markdown 图片语法已复制。' : '图片地址已复制。');
+          return;
+        }
+        const editAction = event.target.closest('[data-media-edit]');
+        if (editAction) {
+          const item = mediaItems.find((media) => media.relativePath === editAction.dataset.mediaEdit);
+          if (item) openMediaEditor(item);
+          return;
+        }
+        const deleteAction = event.target.closest('[data-media-delete]');
+        if (deleteAction) {
+          const item = mediaItems.find((media) => media.relativePath === deleteAction.dataset.mediaDelete);
+          if (item) deleteMedia(item);
+        }
       });
+      qs('#mediaEditForm').addEventListener('submit', (event) => {
+        event.preventDefault();
+        saveMediaEdit();
+      });
+      qsa('.media-dialog-close, .media-dialog-cancel').forEach((button) => button.addEventListener('click', () => qs('#mediaEditDialog').close()));
 
       const mediaDropzone = qs('#mediaDropzone');
       ['dragenter', 'dragover'].forEach((eventName) => mediaDropzone.addEventListener(eventName, (event) => {

@@ -175,6 +175,70 @@ async function writeMarkdown(filePath: string, frontmatter: Frontmatter, body: s
   await fs.rename(tmpPath, filePath);
 }
 
+async function writeRawMarkdown(filePath: string, body: string, createBackup = true) {
+  if (createBackup) await backupMarkdown(filePath);
+  const tmpPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
+  await fs.writeFile(tmpPath, body, 'utf-8');
+  await fs.rename(tmpPath, filePath);
+}
+
+function replaceMarkdownMediaUrl(markdown: string, previousUrl: string, nextUrl?: string) {
+  let matches = 0;
+  const body = markdown.replace(/(!\[[^\]]*\]\(\s*)([^\s)]+)(\s*(?:"[^"]*"|'[^']*')?\s*\))/g, (source, prefix, url, suffix) => {
+    if (url !== previousUrl) return source;
+    matches += 1;
+    return nextUrl ? `${prefix}${nextUrl}${suffix}` : source;
+  });
+  return { body, matches };
+}
+
+export interface ArticleMediaReference {
+  slug: string;
+  title: string;
+  matches: number;
+}
+
+export async function findArticleMediaReferences(mediaUrl: string) {
+  const files = await listMarkdownFiles(articlesDir);
+  const references: ArticleMediaReference[] = [];
+  for (const filePath of files) {
+    const raw = await fs.readFile(filePath, 'utf-8');
+    const { data } = parseFrontmatter(raw);
+    const { matches } = replaceMarkdownMediaUrl(raw, mediaUrl);
+    if (!matches) continue;
+    const slug = valueAsString(data.slug) || slugFromFile(filePath);
+    references.push({ slug, title: valueAsString(data.title) || slug, matches });
+  }
+  return references;
+}
+
+export async function replaceArticleMediaReferences(previousUrl: string, nextUrl: string) {
+  const files = await listMarkdownFiles(articlesDir);
+  const changes: Array<{ filePath: string; previous: string; next: string; reference: ArticleMediaReference }> = [];
+
+  for (const filePath of files) {
+    const previous = await fs.readFile(filePath, 'utf-8');
+    const { body: next, matches } = replaceMarkdownMediaUrl(previous, previousUrl, nextUrl);
+    if (!matches) continue;
+    const { data } = parseFrontmatter(previous);
+    const slug = valueAsString(data.slug) || slugFromFile(filePath);
+    changes.push({ filePath, previous, next, reference: { slug, title: valueAsString(data.title) || slug, matches } });
+  }
+
+  const written: typeof changes = [];
+  try {
+    for (const change of changes) {
+      await writeRawMarkdown(change.filePath, change.next);
+      written.push(change);
+    }
+  } catch (error) {
+    await Promise.allSettled(written.map((change) => writeRawMarkdown(change.filePath, change.previous, false)));
+    throw error;
+  }
+
+  return changes.map((change) => change.reference);
+}
+
 async function pruneMarkdownFiles(dir: string, allowedSlugs: Set<string>) {
   const files = await listMarkdownFiles(dir);
   await Promise.all(files.map(async (filePath) => {

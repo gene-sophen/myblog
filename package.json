@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "astro dev --host 127.0.0.1",
     "build": "astro check && astro build",
+    "test:media": "node --experimental-strip-types scripts/test-media-management.mjs",
     "preview": "astro preview --host 127.0.0.1",
     "start": "node --env-file-if-exists=.env ./dist/server/entry.mjs"
   },

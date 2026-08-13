@@ -75,9 +75,37 @@ printf '\nCONTENT_DIR=/opt/gene-blog/content\nMEDIA_DIR=/opt/gene-blog/uploads/a
 
 `content/` and `public/images/articles/` are ignored by Git. Back up `/opt/gene-blog/content`, `/opt/gene-blog/uploads`, and `.env` regularly.
 
+## Safe routine update
+
+Before every code update, verify that both live directories are configured outside the Git checkout and create one archive containing articles and images:
+
+```bash
+cd /opt/gene-blog/app
+grep -E '^(CONTENT_DIR|MEDIA_DIR)=' .env
+
+test "$(grep '^CONTENT_DIR=' .env | cut -d= -f2-)" = "/opt/gene-blog/content"
+test "$(grep '^MEDIA_DIR=' .env | cut -d= -f2-)" = "/opt/gene-blog/uploads/articles"
+
+sudo tar -C /opt/gene-blog -czf \
+  "/opt/gene-blog/blog-content-before-update-$(date +%F-%H%M%S).tar.gz" \
+  content uploads/articles
+```
+
+Only continue when both `test` commands succeed. Then update code and restart the actual PM2 process:
+
+```bash
+git pull --ff-only
+npm ci --no-audit
+npm run build
+pm2 restart <process-name-or-id> --update-env
+pm2 save
+```
+
+`git pull` only changes `/opt/gene-blog/app`. The live Markdown under `/opt/gene-blog/content` and images under `/opt/gene-blog/uploads/articles` remain untouched. Do not copy `content.example/` over an existing content directory and do not run `rm`, `git clean`, or `rsync --delete` against either persistent directory during an update.
+
 ## Admin content backup
 
-The admin media workspace can stream a ZIP containing the current Markdown files and uploaded images. It is useful for manual snapshots and migration, but it does not replace an automated server backup. The ZIP intentionally excludes `.env`, session data, source code, dependencies, `.backups`, and `.system`.
+The admin media workspace can stream a ZIP containing the current Markdown files and uploaded images. It is useful for manual snapshots and migration, but it does not replace an automated server backup. The ZIP intentionally excludes `.env`, session data, source code, dependencies, `.backups`, and `.system`. Renaming or moving an image from the media workspace updates matching article Markdown references; deletion is rejected while any article still references the image.
 
 The production Nginx proxy must pass the public host and protocol so Astro can keep its built-in origin check enabled:
 

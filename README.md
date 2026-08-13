@@ -82,7 +82,7 @@ excerpt: "这篇文章的摘要。"
 - 单篇 / 批量导入 Markdown；合法文件直接加入编辑列表，格式错误逐项提示，slug 冲突时自动生成不重复的新 slug
 - 保存全部前展示变更摘要；内容体检检查重复 slug、缺少摘要、正文为空、项目关联失效和相对图片路径
 - 站点设置、项目和文章均采用全宽响应式编辑布局，并通过顶部入口打开对应前台页面；内置开发日志、项目说明书、工具箱、面经复盘、月度总结等模板
-- 图床管理支持批量上传 `jpg` / `png` / `webp` / `gif`、图片分组、搜索、预览，以及复制稳定地址或 Markdown 图片语法
+- 图床管理支持批量上传 `jpg` / `png` / `webp` / `gif`、图片分组、搜索、预览、重命名、移动分组和安全删除；移动图片时自动更新文章引用，被文章引用的图片不能直接删除
 - 文章正文会直接渲染 `![图片说明](/media/分组/文件名.png)`；图床中的“复制 Markdown”或文章编辑器的“上传图片”都能生成这一格式
 - 一键下载内容 ZIP，只打包站点、项目、文章 Markdown 和上传图片，并附带文件清单；不会包含源码、`.env`、后台会话或依赖
 
@@ -123,7 +123,7 @@ server {
 }
 ```
 
-需要让服务器上的内容与代码部署分离时，配置 `CONTENT_DIR` 和 `MEDIA_DIR` 指向 Git 检出之外的目录。旧版通过符号链接连接 `public/images/articles` 的部署仍可继续使用。完整迁移与部署命令见 [`docs/persistent-content-deployment.md`](docs/persistent-content-deployment.md)。
+需要让服务器上的内容与代码部署分离时，必须同时配置 `CONTENT_DIR` 和 `MEDIA_DIR` 指向 Git 检出之外的目录。每次更新前同时备份这两个目录，`git pull` 只更新应用代码，不会覆盖云端文章或图床图片。旧版通过符号链接连接 `public/images/articles` 的部署仍可继续使用。完整迁移与安全更新命令见 [`docs/persistent-content-deployment.md`](docs/persistent-content-deployment.md)。
 
 ## 安全说明
 
