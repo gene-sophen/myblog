@@ -135,8 +135,14 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
                   <input id="mediaFolder" type="text" value="library" maxlength="80" placeholder="例如：blog-assets" />
                 </label>
                 <label>
+                  <span>分组筛选</span>
+                  <select id="mediaFolderFilter">
+                    <option value="">全部分组</option>
+                  </select>
+                </label>
+                <label>
                   <span>搜索图片</span>
-                  <input id="mediaSearch" type="search" placeholder="按文件名或分组查找" />
+                  <input id="mediaSearch" type="search" placeholder="按文件名查找" />
                 </label>
                 <p id="mediaSummary" class="media-summary">正在读取图片库...</p>
               </div>
@@ -743,7 +749,7 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
 
     .media-toolbar {
       display: grid;
-      grid-template-columns: minmax(180px, 260px) minmax(220px, 1fr) auto;
+      grid-template-columns: minmax(170px, 240px) minmax(170px, 240px) minmax(220px, 1fr) auto;
       align-items: end;
       gap: 14px;
     }
@@ -756,7 +762,8 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
       font-weight: 800;
     }
 
-    .media-toolbar input {
+    .media-toolbar input,
+    .media-toolbar select {
       width: 100%;
       min-width: 0;
       min-height: 44px;
@@ -768,7 +775,8 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
       color: var(--text-primary);
     }
 
-    .media-toolbar input:focus {
+    .media-toolbar input:focus,
+    .media-toolbar select:focus {
       border-color: var(--bright-cyan);
       box-shadow: 0 0 0 4px rgba(90, 215, 242, 0.14);
     }
@@ -1829,6 +1837,15 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
     }
 
     @media (max-width: 1180px) {
+      .media-toolbar {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .media-summary {
+        padding: 0;
+        text-align: left;
+      }
+
       .record-editor,
       .record-editor.article-record-editor {
         grid-template-columns: 1fr;
@@ -1860,7 +1877,6 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
       }
 
       .media-summary {
-        padding: 0;
         text-align: left;
       }
 
@@ -2568,14 +2584,34 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
         }
       }
 
+      function syncMediaFolderFilter() {
+        const select = qs('#mediaFolderFilter');
+        const selected = select.value;
+        const folders = [...new Set(mediaItems.map((item) => item.folder || '').filter(Boolean))]
+          .sort((a, b) => a.localeCompare(b, 'zh-CN'));
+        select.innerHTML = [
+          '<option value="">全部分组</option>',
+          ...folders.map((folder) => `<option value="${escapeHtml(folder)}">${escapeHtml(folder)}</option>`)
+        ].join('');
+        select.value = folders.includes(selected) ? selected : '';
+      }
+
       function renderMediaLibrary() {
         const grid = qs('#mediaGrid');
         const summary = qs('#mediaSummary');
+        const folder = String(qs('#mediaFolderFilter')?.value || '');
         const query = String(qs('#mediaSearch')?.value || '').trim().toLowerCase();
-        const visible = mediaItems.filter((item) => !query || item.relativePath.toLowerCase().includes(query));
-        summary.textContent = query ? `找到 ${visible.length} / ${mediaItems.length} 张` : `共 ${mediaItems.length} 张图片`;
+        const grouped = mediaItems.filter((item) => !folder || item.folder === folder);
+        const visible = grouped.filter((item) => !query || item.name.toLowerCase().includes(query));
+        const scope = folder ? `“${folder}”分组` : '全部分组';
+        summary.textContent = query
+          ? `${scope}找到 ${visible.length} / ${grouped.length} 张`
+          : `${scope}共 ${grouped.length} 张图片`;
         if (!visible.length) {
-          grid.innerHTML = `<p class="media-empty">${query ? '没有符合搜索条件的图片。' : '图片库为空，上传第一张图片后会显示在这里。'}</p>`;
+          const message = query
+            ? '当前分组没有符合搜索条件的图片。'
+            : folder ? '当前分组暂无图片。' : '图片库为空，上传第一张图片后会显示在这里。';
+          grid.innerHTML = `<p class="media-empty">${message}</p>`;
           return;
         }
 
@@ -2614,6 +2650,7 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
           if (!response.ok) throw new Error(result.error || '读取图片库失败。');
           mediaItems = Array.isArray(result.images) ? result.images : [];
           mediaLoaded = true;
+          syncMediaFolderFilter();
           renderMediaLibrary();
         } catch (error) {
           qs('#mediaSummary').textContent = '读取失败';
@@ -3078,6 +3115,7 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
       qs('#mediaDropzone').addEventListener('click', () => qs('#uploadMedia').click());
       qs('#mediaFiles').addEventListener('change', (event) => uploadMediaFiles(event.target.files));
       qs('#mediaSearch').addEventListener('input', renderMediaLibrary);
+      qs('#mediaFolderFilter').addEventListener('change', renderMediaLibrary);
       qs('#mediaGrid').addEventListener('click', (event) => {
         const copyAction = event.target.closest('[data-copy-value]');
         if (copyAction) {
