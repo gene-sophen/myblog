@@ -29,6 +29,7 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
           <button class="studio-tab active" data-tab="settings">站点设置</button>
           <button class="studio-tab" data-tab="projects">项目维护</button>
           <button class="studio-tab" data-tab="articles">文章维护</button>
+          <button class="studio-tab" data-tab="media">图床管理</button>
           <button id="saveAll" class="btn" type="button">保存全部</button>
           <a class="btn secondary" href="/" target="_blank" rel="noreferrer">查看前台</a>
           <button id="logout" class="btn secondary" type="button">退出</button>
@@ -108,6 +109,43 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
               </div>
               <form id="articleForm" class="admin-form article-form"></form>
               <section id="contentAuditPanel" class="import-panel hidden"></section>
+            </div>
+          </div>
+        </section>
+
+        <section class="glass-card admin-panel hidden" data-panel="media">
+          <div class="panel-head studio-panel-head">
+            <div>
+              <p class="eyebrow">Media Library</p>
+              <h2 class="card-title">图床管理</h2>
+              <p class="panel-desc">集中维护文章图片及其稳定访问地址。</p>
+            </div>
+            <div class="panel-actions">
+              <button class="btn secondary" id="refreshMedia" type="button">刷新图片</button>
+              <button class="btn secondary" id="uploadMedia" type="button">上传图片</button>
+              <a class="btn secondary" href="/api/admin/backup">下载内容备份</a>
+              <input id="mediaFiles" class="hidden-file-input" type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple />
+            </div>
+          </div>
+          <div class="admin-workbench">
+            <div class="editor-surface media-library">
+              <div class="media-toolbar">
+                <label>
+                  <span>存储分组</span>
+                  <input id="mediaFolder" type="text" value="library" maxlength="80" placeholder="例如：blog-assets" />
+                </label>
+                <label>
+                  <span>搜索图片</span>
+                  <input id="mediaSearch" type="search" placeholder="按文件名或分组查找" />
+                </label>
+                <p id="mediaSummary" class="media-summary">正在读取图片库...</p>
+              </div>
+              <button id="mediaDropzone" class="media-dropzone" type="button">
+                <strong>选择或拖入图片</strong>
+                <span>JPG、PNG、WebP、GIF，单张不超过 5MB</span>
+              </button>
+              <p id="mediaMessage" class="media-message" aria-live="polite"></p>
+              <div id="mediaGrid" class="media-grid" aria-live="polite"></div>
             </div>
           </div>
         </section>
@@ -671,6 +709,161 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
 
     .hidden-file-input {
       display: none;
+    }
+
+    .media-library {
+      display: grid;
+      gap: 18px;
+    }
+
+    .media-toolbar {
+      display: grid;
+      grid-template-columns: minmax(180px, 260px) minmax(220px, 1fr) auto;
+      align-items: end;
+      gap: 14px;
+    }
+
+    .media-toolbar label {
+      display: grid;
+      gap: 7px;
+      color: var(--text-secondary);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .media-toolbar input {
+      width: 100%;
+      min-width: 0;
+      min-height: 44px;
+      padding: 10px 12px;
+      border: 1px solid rgba(135, 196, 237, 0.28);
+      border-radius: 8px;
+      outline: none;
+      background: rgba(255, 255, 255, 0.86);
+      color: var(--text-primary);
+    }
+
+    .media-toolbar input:focus {
+      border-color: var(--bright-cyan);
+      box-shadow: 0 0 0 4px rgba(90, 215, 242, 0.14);
+    }
+
+    .media-summary,
+    .media-message {
+      margin: 0;
+      color: var(--text-tertiary);
+      font-size: 13px;
+    }
+
+    .media-summary {
+      min-width: 120px;
+      padding-bottom: 12px;
+      text-align: right;
+    }
+
+    .media-message {
+      min-height: 20px;
+    }
+
+    .media-dropzone {
+      min-height: 112px;
+      display: grid;
+      place-content: center;
+      gap: 6px;
+      width: 100%;
+      border: 1px dashed rgba(38, 161, 188, 0.46);
+      border-radius: 8px;
+      background: rgba(240, 249, 255, 0.52);
+      color: var(--text-secondary);
+      cursor: pointer;
+      text-align: center;
+      transition: border-color 0.2s ease, background 0.2s ease;
+    }
+
+    .media-dropzone span {
+      color: var(--text-tertiary);
+      font-size: 13px;
+    }
+
+    .media-dropzone:hover,
+    .media-dropzone.drag-active {
+      border-color: var(--bright-cyan);
+      background: rgba(112, 244, 191, 0.12);
+    }
+
+    .media-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+      gap: 14px;
+    }
+
+    .media-item {
+      min-width: 0;
+      overflow: hidden;
+      border: 1px solid rgba(135, 196, 237, 0.2);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.82);
+    }
+
+    .media-item img {
+      display: block;
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      object-fit: contain;
+      background: #eef6f8;
+      border-bottom: 1px solid rgba(135, 196, 237, 0.16);
+    }
+
+    .media-item-body {
+      display: grid;
+      gap: 8px;
+      padding: 11px;
+    }
+
+    .media-item-name {
+      overflow: hidden;
+      margin: 0;
+      color: var(--text-primary);
+      font-weight: 800;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .media-item-meta {
+      margin: 0;
+      color: var(--text-tertiary);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      line-height: 1.5;
+    }
+
+    .media-item-actions {
+      display: flex;
+      gap: 12px;
+      padding-top: 2px;
+    }
+
+    .media-copy-action {
+      padding: 0;
+      border: 0;
+      background: transparent;
+      color: #167e95;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .media-copy-action:hover {
+      text-decoration: underline;
+    }
+
+    .media-empty {
+      grid-column: 1 / -1;
+      margin: 0;
+      padding: 54px 20px;
+      border-top: 1px solid rgba(135, 196, 237, 0.16);
+      color: var(--text-tertiary);
+      text-align: center;
     }
 
     .import-panel {
@@ -1566,6 +1759,19 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
     }
 
     @media (max-width: 760px) {
+      .media-toolbar {
+        grid-template-columns: 1fr;
+      }
+
+      .media-summary {
+        padding: 0;
+        text-align: left;
+      }
+
+      .media-grid {
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      }
+
       .import-grid {
         grid-template-columns: 1fr;
       }
@@ -1639,6 +1845,9 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
       let articlePage = 1;
       const articlePageSize = 12;
       const articleFilters = { query: '', status: 'all', kind: 'all', sort: 'date-desc' };
+      let mediaItems = [];
+      let mediaLoaded = false;
+      let mediaLoading = false;
       let lastSessionActivity = Date.now();
       let lastSessionHeartbeat = Date.now();
       let handlingSessionExpiry = false;
@@ -2127,6 +2336,7 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
       }
 
       const syncStudioDraft = (event) => {
+        if (event.target.closest('[data-panel="media"]')) return;
         if (event.target.closest('#articleForm')) readArticleForm();
         setDirty(true);
       };
@@ -2148,6 +2358,110 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
 
         if (projectLink) projectLink.href = projectUrl;
         if (articleLink) articleLink.href = articleUrl;
+      }
+
+      function formatFileSize(bytes) {
+        if (!Number.isFinite(bytes) || bytes < 0) return '未知大小';
+        if (bytes < 1024) return `${bytes} B`;
+        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(bytes < 10 * 1024 ? 1 : 0)} KB`;
+        return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+      }
+
+      async function copyMediaText(value, successMessage) {
+        try {
+          await navigator.clipboard.writeText(value);
+          qs('#mediaMessage').textContent = successMessage;
+        } catch {
+          qs('#mediaMessage').textContent = '复制失败，请确认浏览器已允许剪贴板权限。';
+        }
+      }
+
+      function renderMediaLibrary() {
+        const grid = qs('#mediaGrid');
+        const summary = qs('#mediaSummary');
+        const query = String(qs('#mediaSearch')?.value || '').trim().toLowerCase();
+        const visible = mediaItems.filter((item) => !query || item.relativePath.toLowerCase().includes(query));
+        summary.textContent = query ? `找到 ${visible.length} / ${mediaItems.length} 张` : `共 ${mediaItems.length} 张图片`;
+        if (!visible.length) {
+          grid.innerHTML = `<p class="media-empty">${query ? '没有符合搜索条件的图片。' : '图片库为空，上传第一张图片后会显示在这里。'}</p>`;
+          return;
+        }
+
+        grid.innerHTML = visible.map((item) => {
+          const markdown = `![${item.name.replace(/\.[^.]+$/, '')}](${item.url})`;
+          const modifiedAt = new Date(item.modifiedAt).toLocaleString();
+          return `
+            <article class="media-item">
+              <img src="${escapeHtml(item.url)}" alt="${escapeHtml(item.name)}" loading="lazy" />
+              <div class="media-item-body">
+                <p class="media-item-name" title="${escapeHtml(item.relativePath)}">${escapeHtml(item.name)}</p>
+                <p class="media-item-meta">${escapeHtml(item.folder || '根目录')} · ${escapeHtml(formatFileSize(item.size))}<br />${escapeHtml(modifiedAt)}</p>
+                <div class="media-item-actions">
+                  <button class="media-copy-action" type="button" data-copy-value="${escapeHtml(item.url)}" data-copy-kind="url">复制地址</button>
+                  <button class="media-copy-action" type="button" data-copy-value="${escapeHtml(markdown)}" data-copy-kind="markdown">复制 Markdown</button>
+                </div>
+              </div>
+            </article>
+          `;
+        }).join('');
+      }
+
+      async function loadMediaLibrary(force = false) {
+        if (mediaLoading || (mediaLoaded && !force)) return;
+        mediaLoading = true;
+        qs('#mediaSummary').textContent = '正在读取图片库...';
+        try {
+          const response = await fetch('/api/admin/upload-image');
+          const result = await response.json().catch(() => ({}));
+          if (response.status === 401) {
+            handleSessionExpiry();
+            return;
+          }
+          if (!response.ok) throw new Error(result.error || '读取图片库失败。');
+          mediaItems = Array.isArray(result.images) ? result.images : [];
+          mediaLoaded = true;
+          renderMediaLibrary();
+        } catch (error) {
+          qs('#mediaSummary').textContent = '读取失败';
+          qs('#mediaMessage').textContent = error.message || '读取图片库失败，请检查服务状态。';
+        } finally {
+          mediaLoading = false;
+        }
+      }
+
+      async function uploadMediaFiles(files) {
+        const selected = Array.from(files || []);
+        if (!selected.length) return;
+        const uploadButton = qs('#uploadMedia');
+        const dropzone = qs('#mediaDropzone');
+        const formData = new FormData();
+        selected.forEach((file) => formData.append('images', file));
+        formData.set('folder', qs('#mediaFolder').value || 'library');
+        uploadButton.disabled = true;
+        dropzone.disabled = true;
+        qs('#mediaMessage').textContent = `正在上传 ${selected.length} 张图片...`;
+        try {
+          const response = await fetch('/api/admin/upload-image', { method: 'POST', body: formData });
+          const result = await response.json().catch(() => ({}));
+          if (response.status === 401) {
+            handleSessionExpiry();
+            return;
+          }
+          const uploadedCount = Array.isArray(result.images) ? result.images.length : 0;
+          const errors = Array.isArray(result.errors) ? result.errors : [];
+          if (!response.ok && !uploadedCount) throw new Error(result.error || errors[0]?.message || '图片上传失败。');
+          mediaLoaded = false;
+          await loadMediaLibrary(true);
+          qs('#mediaMessage').textContent = errors.length
+            ? `已上传 ${uploadedCount} 张，${errors.length} 张失败：${errors.slice(0, 2).map((item) => `${item.fileName}（${item.message}）`).join('；')}`
+            : `已上传 ${uploadedCount} 张图片。`;
+        } catch (error) {
+          qs('#mediaMessage').textContent = error.message || '图片上传失败，请检查服务状态。';
+        } finally {
+          uploadButton.disabled = false;
+          dropzone.disabled = false;
+          qs('#mediaFiles').value = '';
+        }
       }
 
       function field(name, label, value = '', options = {}) {
@@ -2549,7 +2863,34 @@ const authed = await isAuthed({ cookies: Astro.cookies, request: Astro.request }
         qsa('.studio-tab').forEach((item) => item.classList.remove('active'));
         button.classList.add('active');
         qsa('[data-panel]').forEach((panel) => panel.classList.toggle('hidden', panel.dataset.panel !== button.dataset.tab));
+        if (button.dataset.tab === 'media') loadMediaLibrary();
       }));
+
+      qs('#refreshMedia').addEventListener('click', () => loadMediaLibrary(true));
+      qs('#uploadMedia').addEventListener('click', () => {
+        const input = qs('#mediaFiles');
+        input.value = '';
+        input.click();
+      });
+      qs('#mediaDropzone').addEventListener('click', () => qs('#uploadMedia').click());
+      qs('#mediaFiles').addEventListener('change', (event) => uploadMediaFiles(event.target.files));
+      qs('#mediaSearch').addEventListener('input', renderMediaLibrary);
+      qs('#mediaGrid').addEventListener('click', (event) => {
+        const action = event.target.closest('[data-copy-value]');
+        if (!action) return;
+        copyMediaText(action.dataset.copyValue || '', action.dataset.copyKind === 'markdown' ? 'Markdown 图片语法已复制。' : '图片地址已复制。');
+      });
+
+      const mediaDropzone = qs('#mediaDropzone');
+      ['dragenter', 'dragover'].forEach((eventName) => mediaDropzone.addEventListener(eventName, (event) => {
+        event.preventDefault();
+        mediaDropzone.classList.add('drag-active');
+      }));
+      ['dragleave', 'drop'].forEach((eventName) => mediaDropzone.addEventListener(eventName, (event) => {
+        event.preventDefault();
+        mediaDropzone.classList.remove('drag-active');
+      }));
+      mediaDropzone.addEventListener('drop', (event) => uploadMediaFiles(event.dataTransfer?.files));
 
       qs('#newProject').addEventListener('click', () => {
         readProjectForm();

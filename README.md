@@ -11,7 +11,7 @@
 - **纯 Markdown 内容库**：文章、项目、站点设置全部是 `content/` 下的 Markdown 文件，Git 友好的同时自带可视化后台
 - **完整栏目**：首页（博主名片 / 状态播报 / 近期更新）、正在开发、项目库、工具箱、个人履历、文章详情
 - **自带后台**：在线维护站点设置、项目和文章，保存时写回 Markdown 文件，并自动备份旧版本
-- **内容工作流**：Markdown 导入 / 导出、批量导入、变更摘要、内容体检（重复 slug、缺摘要、失效关联等）、图片上传、正文预览
+- **内容工作流**：Markdown 导入 / 导出、批量导入、变更摘要、内容体检（重复 slug、缺摘要、失效关联等）、独立图床与内容备份
 - **SEO 与安全**：自动生成 `rss.xml`、`sitemap.xml`、`robots.txt`；后台会话加固、登录限流、上传校验、正文转义
 
 ## 技术栈
@@ -38,6 +38,7 @@ ADMIN_SESSION_SECRET=your-long-random-string-at-least-32-chars
 ASTRO_TELEMETRY_DISABLED=1
 # 生产环境建议把内容目录放到 Git 检出之外：
 # CONTENT_DIR=/opt/gene-blog/content
+# MEDIA_DIR=/opt/gene-blog/uploads/articles
 ```
 
 ## 内容维护
@@ -79,7 +80,8 @@ excerpt: "这篇文章的摘要。"
 - 单篇 / 批量导入 Markdown；合法文件直接加入编辑列表，格式错误逐项提示，slug 冲突时自动生成不重复的新 slug
 - 保存全部前展示变更摘要；内容体检检查重复 slug、缺少摘要、正文为空、项目关联失效和相对图片路径
 - 站点设置、项目和文章均采用全宽响应式编辑布局，并通过顶部入口打开对应前台页面；内置开发日志、项目说明书、工具箱、面经复盘、月度总结等模板
-- 上传 `jpg` / `png` / `webp` / `gif` 图片到 `public/images/articles/<article-slug>/` 并自动插入图片语法
+- 图床管理支持批量上传 `jpg` / `png` / `webp` / `gif`、图片分组、搜索、预览，以及复制稳定地址或 Markdown 图片语法
+- 一键下载内容 ZIP，只打包站点、项目、文章 Markdown 和上传图片，并附带文件清单；不会包含源码、`.env`、后台会话或依赖
 
 文章支持 `status: "draft" | "published"`，前台默认只展示已发布文章。
 
@@ -91,7 +93,7 @@ excerpt: "这篇文章的摘要。"
 node scripts/migrate-json-to-markdown.mjs
 ```
 
-建议把 `content/`、`public/images/articles` 和 `data/content-version.json` 纳入备份。
+可以在后台“图床管理”中下载内容 ZIP；仍建议在服务器侧定期备份 `CONTENT_DIR` 和 `MEDIA_DIR`，形成独立于应用的第二份副本。
 
 ## 构建与部署
 
@@ -118,7 +120,7 @@ server {
 }
 ```
 
-需要让服务器上的内容与代码部署分离时，配置 `CONTENT_DIR` 指向 Git 检出之外的目录，并把上传图片放到持久目录后链接到 `public/images/articles`。完整迁移与部署命令见 [`docs/persistent-content-deployment.md`](docs/persistent-content-deployment.md)。
+需要让服务器上的内容与代码部署分离时，配置 `CONTENT_DIR` 和 `MEDIA_DIR` 指向 Git 检出之外的目录。旧版通过符号链接连接 `public/images/articles` 的部署仍可继续使用。完整迁移与部署命令见 [`docs/persistent-content-deployment.md`](docs/persistent-content-deployment.md)。
 
 ## 安全说明
 
@@ -126,7 +128,8 @@ server {
 - 后台接口都需要管理员会话；登录接口带基础限流，限流优先使用反向代理传入的 `X-Real-IP`（请确保 Nginx 覆盖该请求头）
 - 会话绑定浏览器 User-Agent，30 分钟无活动过期，12 小时绝对过期；同时只允许一个会话在线，新登录会使旧会话失效
 - 内容写入、图片上传、登录、登出要求同源请求；编辑器在跳转重新登录前会把未保存修改暂存到浏览器，并在登录后提示恢复
-- 图片上传不支持 SVG，并校验文件头；文章正文经 Markdown 渲染器转义，避免注入 HTML
+- 图片上传不支持 SVG，限制单张 5MB、单批 20 张 / 50MB，并校验文件头；媒体访问接口阻止路径穿越和符号链接逃逸
+- 内容备份使用文件类型白名单，仅收集 Markdown 和受支持图片，不读取隐藏内容目录、环境变量或会话数据
 - `robots.txt` 已声明禁止抓取 `/admin` 和 `/api/`
 - 定期执行 `npm audit --registry=https://registry.npmjs.org` 检查依赖漏洞（镜像源可能不支持 audit 接口）
 

@@ -2,6 +2,13 @@
 
 Application code is deployed from Git. Live content is stored outside the Git checkout so a deployment never replaces articles, site settings, content backups, or uploaded images.
 
+Set both persistent directories explicitly in production:
+
+```dotenv
+CONTENT_DIR=/opt/gene-blog/content
+MEDIA_DIR=/opt/gene-blog/uploads/articles
+```
+
 ## Directory layout
 
 ```text
@@ -24,7 +31,7 @@ mkdir -p /opt/gene-blog/content /opt/gene-blog/uploads
 if [ -d content ]; then
   cp -a content/. /opt/gene-blog/content/
 fi
-printf '\nCONTENT_DIR=/opt/gene-blog/content\n' >> .env
+printf '\nCONTENT_DIR=/opt/gene-blog/content\nMEDIA_DIR=/opt/gene-blog/uploads/articles\n' >> .env
 if [ -d public/images/articles ] && [ ! -L public/images/articles ]; then
   mv public/images/articles /opt/gene-blog/uploads/articles
 else
@@ -32,6 +39,8 @@ else
 fi
 ln -s /opt/gene-blog/uploads/articles public/images/articles
 ```
+
+`MEDIA_DIR` lets the `/media/...` route read the persistent upload directory directly. The symbolic link remains in the migration commands so older `/images/articles/...` links in existing Markdown continue to work.
 
 The backup contains the latest JSON content written by the old application. Extract it and migrate from that backup into the persistent Markdown directory:
 
@@ -55,12 +64,17 @@ Do not run `git restore data/articles.json` during this migration: that file may
 
 ## New environment
 
-Copy the starter content once, then configure `CONTENT_DIR` before starting the app:
+Copy the starter content once, then configure `CONTENT_DIR` and `MEDIA_DIR` before starting the app:
 
 ```bash
 mkdir -p /opt/gene-blog/content /opt/gene-blog/uploads/articles
 cp -a content.example/. /opt/gene-blog/content/
 ln -s /opt/gene-blog/uploads/articles public/images/articles
+printf '\nCONTENT_DIR=/opt/gene-blog/content\nMEDIA_DIR=/opt/gene-blog/uploads/articles\n' >> .env
 ```
 
 `content/` and `public/images/articles/` are ignored by Git. Back up `/opt/gene-blog/content`, `/opt/gene-blog/uploads`, and `.env` regularly.
+
+## Admin content backup
+
+The admin media workspace can stream a ZIP containing the current Markdown files and uploaded images. It is useful for manual snapshots and migration, but it does not replace an automated server backup. The ZIP intentionally excludes `.env`, session data, source code, dependencies, `.backups`, and `.system`.

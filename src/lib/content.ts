@@ -13,6 +13,10 @@ const settingsFile = path.join(contentDir, 'settings.md');
 const markdownBackupDir = path.join(contentDir, '.backups');
 const contentStateDir = path.join(contentDir, '.system');
 
+export function getContentDirectory() {
+  return contentDir;
+}
+
 type FrontmatterValue = string | number | boolean | string[];
 type Frontmatter = Record<string, FrontmatterValue>;
 
