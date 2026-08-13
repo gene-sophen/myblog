@@ -11,6 +11,12 @@ function inlineMarkdown(value: string) {
   return escapeHtml(value)
     .replace(/`([^`]+)`/g, '<code>$1</code>')
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, alt, src) => {
+      const nextSrc = src.trim();
+      const safeSrc = /^(https?:\/\/|\/(?!\/))/i.test(nextSrc) ? nextSrc : '';
+      if (!safeSrc) return `<span class="article-image-error">[图片地址无效：${alt || '未命名图片'}]</span>`;
+      return `<img class="article-image" src="${safeSrc}" alt="${alt}" loading="lazy" decoding="async" />`;
+    })
     .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, text, href) => {
       const nextHref = href.trim();
       const safeHref = /^(https?:|mailto:|\/|#)/i.test(nextHref) ? nextHref : '#';

@@ -750,6 +750,22 @@ textarea {
   font-size: 16px;
 }
 
+.article-prose .article-image {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  max-height: 80vh;
+  margin: 24px auto;
+  border-radius: 8px;
+  object-fit: contain;
+}
+
+.article-prose .article-image-error {
+  color: #b42318;
+  font-size: 14px;
+}
+
 .article-prose .table-wrap {
   overflow-x: auto;
   margin: 20px 0;
